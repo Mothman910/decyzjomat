@@ -1,8 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Copy, Heart, Maximize2, Minimize2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Check, ChevronDown, Copy, Flame, Heart, Leaf, Maximize2, Minimize2, Moon, Palette, PawPrint, Sparkles, Sun, X, Zap } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import pdfMake from 'pdfmake/build/pdfmake';
+import pdfFonts from 'pdfmake/build/vfs_fonts';
 import type { DecisionCard } from '@/types/decisionCard';
 import type { QuizAxisId, QuizPackId, RoomMode, RoomView } from '@/types/room';
 import { AiTipsFab } from '@/components/AiTipsFab';
@@ -10,6 +14,20 @@ import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { QUIZ_PACKS, getAxisLabel, getQuestionById } from '@/lib/quizBank';
 import { WORD_PAIRS_SUBCATEGORIES, type WordPairsSubcategoryId } from '@/lib/wordPairs';
 import styles from './PlayApp.module.css';
+
+const pdfMakeAny = pdfMake as unknown as { vfs?: unknown; fonts?: unknown; createPdf?: (doc: unknown) => { download: (filename: string) => void } };
+const pdfFontsAny = pdfFonts as unknown as { pdfMake?: { vfs?: unknown } };
+if (!pdfMakeAny.vfs && pdfFontsAny.pdfMake?.vfs) {
+	pdfMakeAny.vfs = pdfFontsAny.pdfMake.vfs;
+	pdfMakeAny.fonts = {
+		Roboto: {
+			normal: 'Roboto-Regular.ttf',
+			bold: 'Roboto-Medium.ttf',
+			italics: 'Roboto-Italic.ttf',
+			bolditalics: 'Roboto-MediumItalic.ttf',
+		},
+	};
+}
 
 const ROOM_CATEGORIES: Array<{ label: string; genreId: number }> = [
 	{ label: 'Komedia', genreId: 35 },
@@ -22,6 +40,17 @@ const ROOM_CATEGORIES: Array<{ label: string; genreId: number }> = [
 	{ label: 'Fantasy', genreId: 14 },
 	{ label: 'Horror', genreId: 27 },
 	{ label: 'Sci-Fi', genreId: 878 },
+];
+
+const QUIZ_AXES: QuizAxisId[] = [
+	'modernClassic',
+	'minimalMaximal',
+	'warmCool',
+	'naturalIndustrial',
+	'boldSafe',
+	'budgetPremium',
+	'planSpontaneous',
+	'socialCozy',
 ];
 
 async function copyToClipboard(text: string): Promise<void> {
@@ -85,16 +114,485 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 	return data;
 }
 
-function downloadJson(filename: string, data: unknown) {
-	const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	URL.revokeObjectURL(url);
+function clamp(n: number, min: number, max: number): number {
+	return Math.max(min, Math.min(max, n));
+}
+
+const LEFT_PCT_CLASSES = [
+	'left-[0%]',
+	'left-[1%]',
+	'left-[2%]',
+	'left-[3%]',
+	'left-[4%]',
+	'left-[5%]',
+	'left-[6%]',
+	'left-[7%]',
+	'left-[8%]',
+	'left-[9%]',
+	'left-[10%]',
+	'left-[11%]',
+	'left-[12%]',
+	'left-[13%]',
+	'left-[14%]',
+	'left-[15%]',
+	'left-[16%]',
+	'left-[17%]',
+	'left-[18%]',
+	'left-[19%]',
+	'left-[20%]',
+	'left-[21%]',
+	'left-[22%]',
+	'left-[23%]',
+	'left-[24%]',
+	'left-[25%]',
+	'left-[26%]',
+	'left-[27%]',
+	'left-[28%]',
+	'left-[29%]',
+	'left-[30%]',
+	'left-[31%]',
+	'left-[32%]',
+	'left-[33%]',
+	'left-[34%]',
+	'left-[35%]',
+	'left-[36%]',
+	'left-[37%]',
+	'left-[38%]',
+	'left-[39%]',
+	'left-[40%]',
+	'left-[41%]',
+	'left-[42%]',
+	'left-[43%]',
+	'left-[44%]',
+	'left-[45%]',
+	'left-[46%]',
+	'left-[47%]',
+	'left-[48%]',
+	'left-[49%]',
+	'left-[50%]',
+	'left-[51%]',
+	'left-[52%]',
+	'left-[53%]',
+	'left-[54%]',
+	'left-[55%]',
+	'left-[56%]',
+	'left-[57%]',
+	'left-[58%]',
+	'left-[59%]',
+	'left-[60%]',
+	'left-[61%]',
+	'left-[62%]',
+	'left-[63%]',
+	'left-[64%]',
+	'left-[65%]',
+	'left-[66%]',
+	'left-[67%]',
+	'left-[68%]',
+	'left-[69%]',
+	'left-[70%]',
+	'left-[71%]',
+	'left-[72%]',
+	'left-[73%]',
+	'left-[74%]',
+	'left-[75%]',
+	'left-[76%]',
+	'left-[77%]',
+	'left-[78%]',
+	'left-[79%]',
+	'left-[80%]',
+	'left-[81%]',
+	'left-[82%]',
+	'left-[83%]',
+	'left-[84%]',
+	'left-[85%]',
+	'left-[86%]',
+	'left-[87%]',
+	'left-[88%]',
+	'left-[89%]',
+	'left-[90%]',
+	'left-[91%]',
+	'left-[92%]',
+	'left-[93%]',
+	'left-[94%]',
+	'left-[95%]',
+	'left-[96%]',
+	'left-[97%]',
+	'left-[98%]',
+	'left-[99%]',
+	'left-[100%]',
+] as const;
+
+function pctToLeftClass(pct: number): string {
+	const idx = clamp(Math.round(pct), 0, 100);
+	return LEFT_PCT_CLASSES[idx] ?? LEFT_PCT_CLASSES[0];
+}
+
+function hashStringToUint32(input: string): number {
+	// FNV-1a 32-bit
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < input.length; i += 1) {
+		hash ^= input.charCodeAt(i);
+		hash = Math.imul(hash, 0x01000193);
+	}
+	return hash >>> 0;
+}
+
+const WORD_TITLES_BY_SUBCATEGORY: Record<WordPairsSubcategoryId, Set<string>> = (() => {
+	const out: Record<WordPairsSubcategoryId, Set<string>> = {
+		adjectives: new Set<string>(),
+		animals: new Set<string>(),
+		textures: new Set<string>(),
+	};
+	for (const sub of WORD_PAIRS_SUBCATEGORIES) {
+		for (const p of sub.pairs) {
+			out[sub.id].add(p.left.toLowerCase());
+			out[sub.id].add(p.right.toLowerCase());
+		}
+	}
+	return out;
+})();
+
+function inferWordsSubcategory(title: string): WordPairsSubcategoryId | null {
+	const t = title.toLowerCase();
+	if (WORD_TITLES_BY_SUBCATEGORY.animals.has(t)) return 'animals';
+	if (WORD_TITLES_BY_SUBCATEGORY.textures.has(t)) return 'textures';
+	if (WORD_TITLES_BY_SUBCATEGORY.adjectives.has(t)) return 'adjectives';
+	return null;
+}
+
+function pickWordAccent(indexSeed: string): { bgClass: string; Icon: typeof Sparkles } {
+	const hash = hashStringToUint32(indexSeed);
+	const bgVariants = [
+		'bg-gradient-to-br from-white/20 to-transparent dark:from-white/10',
+		'bg-gradient-to-br from-white/10 via-white/0 to-transparent dark:from-white/10',
+		'bg-gradient-to-tr from-white/15 to-transparent dark:from-white/10',
+		'bg-gradient-to-b from-white/15 to-transparent dark:from-white/10',
+		'bg-gradient-to-br from-white/10 to-transparent dark:from-white/10',
+		'bg-gradient-to-tl from-white/15 to-transparent dark:from-white/10',
+	];
+	return {
+		bgClass: bgVariants[hash % bgVariants.length] ?? bgVariants[0],
+		Icon: Sparkles,
+	};
+}
+
+function pickWordIcon(title: string): typeof Sparkles {
+	const t = title.toLowerCase();
+
+	// Preferuj konkretne dopasowania dla haseł z naszej bazy ("smaczki").
+	const overrides: Record<string, typeof Sparkles> = {
+		// Przymiotniki
+		romantyczny: Heart,
+		zadziorny: Zap,
+		ambitny: Flame,
+		wyluzowany: Leaf,
+		spontaniczny: Sparkles,
+		zaplanowany: Sun,
+		minimalistyczny: Leaf,
+		nowoczesny: Zap,
+		klasyczny: Sun,
+		bezpieczny: Leaf,
+		ryzykowny: Flame,
+		głośny: Zap,
+		cichy: Moon,
+
+		// Tekstury / wrażenia
+		gorący: Flame,
+		zimny: Moon,
+		ciepły: Sun,
+		chłodny: Moon,
+		pikantny: Flame,
+		słodki: Sparkles,
+		metaliczny: Zap,
+		aksamitny: Sparkles,
+		błyszczący: Sun,
+		matowy: Moon,
+		chrupiący: Zap,
+		kremowy: Sparkles,
+	};
+	const direct = overrides[t];
+	if (direct) return direct;
+
+	// „Hasła” to konkretnie: przymiotniki / zwierzęta / tekstury.
+	// Dopasowujemy ikonę do kategorii, a nie do randkowych słów-kluczy.
+	const sub = inferWordsSubcategory(title);
+	if (sub === 'animals') return PawPrint;
+	if (sub === 'textures') return Palette;
+	if (sub === 'adjectives') return Sparkles;
+
+	// Fallback: deterministycznie z hasha.
+	const hash = hashStringToUint32(title);
+	const icons = [Sparkles, Sun, Moon, Leaf, Flame, Zap] as const;
+	return icons[hash % icons.length] ?? Sparkles;
+}
+
+function computeAxisScoreRange(questionIds: string[], axisId: QuizAxisId): { min: number; max: number } {
+	let min = 0;
+	let max = 0;
+	for (const qid of questionIds) {
+		const q = getQuestionById(qid);
+		if (!q) continue;
+		let qMin = 0;
+		let qMax = 0;
+		let first = true;
+		for (const opt of q.options) {
+			const w = opt.weights[axisId] ?? 0;
+			if (first) {
+				qMin = w;
+				qMax = w;
+				first = false;
+			} else {
+				qMin = Math.min(qMin, w);
+				qMax = Math.max(qMax, w);
+			}
+		}
+		min += qMin;
+		max += qMax;
+	}
+	if (min === max) {
+		return { min: -1, max: 1 };
+	}
+	return { min, max };
+}
+
+function splitAxisPoles(axisId: QuizAxisId): { left: string; right: string } {
+	const raw = getAxisLabel(axisId);
+	const parts = raw.split('↔').map((s) => s.trim());
+	return { left: parts[0] ?? raw, right: parts[1] ?? '' };
+}
+
+function getAxisLabelForPdf(axisId: QuizAxisId): string {
+	// Roboto (vfs) może nie zawierać niektórych strzałek, więc normalizujemy separator.
+	return getAxisLabel(axisId).replace(/\s*↔\s*/g, ' <-> ');
+}
+
+function renderMarkdownLite(text: string): ReactNode {
+	const normalized = text.replace(/\r\n/g, '\n').trim();
+	if (!normalized) return null;
+
+	return (
+		<div className="text-sm text-white/85">
+			<ReactMarkdown
+				remarkPlugins={[remarkGfm]}
+				components={{
+					h2: ({ children }) => <p className="mt-3 text-sm font-semibold text-white/95">{children}</p>,
+					h3: ({ children }) => <p className="mt-3 text-sm font-semibold text-white/95">{children}</p>,
+					p: ({ children }) => <p className="mt-2 leading-relaxed">{children}</p>,
+					ul: ({ children }) => <ul className="mt-2 list-disc space-y-1 pl-5">{children}</ul>,
+					ol: ({ children }) => <ol className="mt-2 list-decimal space-y-1 pl-5">{children}</ol>,
+					table: ({ children }) => (
+						<div className="mt-2 overflow-x-auto">
+							<table className="w-full border-separate border-spacing-0 text-xs">{children}</table>
+						</div>
+					),
+					thead: ({ children }) => <thead className="text-white/90">{children}</thead>,
+					tbody: ({ children }) => <tbody className="text-white/80">{children}</tbody>,
+					tr: ({ children }) => <tr className="">{children}</tr>,
+					th: ({ children }) => (
+						<th className="border border-white/10 bg-white/5 px-2 py-2 text-left font-semibold">{children}</th>
+					),
+					td: ({ children }) => <td className="border border-white/10 px-2 py-2 align-top">{children}</td>,
+					strong: ({ children }) => <strong className="font-semibold text-white/90">{children}</strong>,
+					em: ({ children }) => <em className="italic text-white/85">{children}</em>,
+					code: ({ children }) => <code className="rounded bg-white/10 px-1 py-0.5 text-[12px]">{children}</code>,
+				}}
+			>
+				{normalized}
+			</ReactMarkdown>
+		</div>
+	);
+}
+
+function markdownToPlainText(md: string): string {
+	return md
+		.replace(/^\s*#{1,6}\s+/gm, '')
+		.replace(/^\s*[-*+]\s+/gm, '• ')
+		.replace(/^\s*\d+\.\s+/gm, '• ')
+		.replace(/^\s*\|.*\|\s*$/gm, '')
+		.replace(/^\s*:\-+.*$/gm, '')
+		.replace(/`{1,3}([^`]*)`{1,3}/g, '$1')
+		.replace(/\*\*([^*]+)\*\*/g, '$1')
+		.replace(/_([^_]+)_/g, '$1')
+		.replace(/\r\n/g, '\n')
+		.trim();
+}
+
+function sanitizePdfText(text: string): string {
+	// Unikamy znaków, które czasem wypadają jako "kwadrat z krzyżykiem".
+	return text.replace(/\s*↔\s*/g, ' <-> ');
+}
+
+function isLikelyMarkdownTableRow(line: string): boolean {
+	const trimmed = line.trim();
+	if (!trimmed) return false;
+	// Musi mieć co najmniej 2 separatory kolumn.
+	const pipeCount = (trimmed.match(/\|/g) ?? []).length;
+	return pipeCount >= 2;
+}
+
+function isMarkdownTableSeparator(line: string): boolean {
+	// np. | --- | :---: | ---: |
+	const trimmed = line.trim();
+	if (!trimmed) return false;
+	return /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(trimmed);
+}
+
+function parseMarkdownTableRow(line: string): string[] {
+	let trimmed = line.trim();
+	if (trimmed.startsWith('|')) trimmed = trimmed.slice(1);
+	if (trimmed.endsWith('|')) trimmed = trimmed.slice(0, -1);
+	return trimmed.split('|').map((c) => c.trim());
+}
+
+function markdownToPdfmakeContent(md: string): unknown[] {
+	const normalized = md.replace(/\r\n/g, '\n').trim();
+	if (!normalized) return [{ text: '(brak treści)', style: 'body' }];
+
+	const lines = normalized.split('\n');
+	const blocks: unknown[] = [];
+	let i = 0;
+
+	const flushParagraph = (paraLines: string[]) => {
+		const raw = paraLines.join('\n').trim();
+		if (!raw) return;
+		const plain = sanitizePdfText(markdownToPlainText(raw));
+		if (!plain) return;
+		blocks.push({ text: plain, style: 'body', margin: [0, 0, 0, 6] });
+	};
+
+	let paragraph: string[] = [];
+
+	while (i < lines.length) {
+		const line = lines[i] ?? '';
+
+		// Pusta linia domyka akapit.
+		if (!line.trim()) {
+			flushParagraph(paragraph);
+			paragraph = [];
+			i += 1;
+			continue;
+		}
+
+		// Próba wykrycia tabeli Markdown (GFM): header + separator + wiersze.
+		const next = lines[i + 1] ?? '';
+		if (isLikelyMarkdownTableRow(line) && isMarkdownTableSeparator(next)) {
+			flushParagraph(paragraph);
+			paragraph = [];
+
+			const headerCellsRaw = parseMarkdownTableRow(line);
+			const separatorLine = next;
+			const headerCols = headerCellsRaw.length;
+			const widths = new Array(Math.max(1, headerCols)).fill('*');
+
+			const body: Array<Array<string | { text: string; bold?: boolean }>> = [
+				headerCellsRaw.map((c) => ({ text: sanitizePdfText(markdownToPlainText(c)) || ' ', bold: true })),
+			];
+
+			i += 2; // skip header + separator
+			void separatorLine;
+
+			while (i < lines.length) {
+				const rowLine = lines[i] ?? '';
+				if (!rowLine.trim()) break;
+				if (!isLikelyMarkdownTableRow(rowLine)) break;
+				if (isMarkdownTableSeparator(rowLine)) {
+					i += 1;
+					continue;
+				}
+				const rowCells = parseMarkdownTableRow(rowLine);
+				// Dopasuj liczbę kolumn do nagłówka.
+				const padded = rowCells.slice(0, headerCols);
+				while (padded.length < headerCols) padded.push('');
+				body.push(padded.map((c) => sanitizePdfText(markdownToPlainText(c)) || ' '));
+				i += 1;
+			}
+
+			blocks.push({
+				table: {
+					headerRows: 1,
+					widths,
+					body,
+				},
+				layout: {
+					fillColor: (rowIndex: number) => (rowIndex === 0 ? '#eeeeee' : null),
+					hLineColor: () => '#dddddd',
+					vLineColor: () => '#dddddd',
+					paddingLeft: () => 6,
+					paddingRight: () => 6,
+					paddingTop: () => 4,
+					paddingBottom: () => 4,
+				},
+				margin: [0, 2, 0, 10],
+			});
+			continue;
+		}
+
+		paragraph.push(line);
+		i += 1;
+	}
+
+	flushParagraph(paragraph);
+	return blocks.length ? blocks : [{ text: '(brak treści)', style: 'body' }];
+}
+
+function downloadGustyPdf(args: { filename: string; room: RoomView; clientId: string; quizAxes: QuizAxisId[] }) {
+	const { filename, room, clientId, quizAxes } = args;
+	if (room.mode !== 'quiz') return;
+	const quiz = room.quiz;
+	if (!quiz) return;
+
+	const partnerId = room.participantClientIds.find((id) => id !== clientId) ?? null;
+
+	const axesBody: Array<Array<string | number>> = [
+		['Oś', 'Ty', 'Partner', 'Różnica'],
+		...quizAxes.map((axisId) => {
+			const me = quiz.scoresByClientId?.[clientId]?.[axisId] ?? 0;
+			const partner = partnerId ? quiz.scoresByClientId?.[partnerId]?.[axisId] ?? 0 : 0;
+			const diff = Math.abs(me - partner);
+			return [getAxisLabelForPdf(axisId), me, partner, diff];
+		}),
+	];
+
+	const summaryBlocks = quiz.aiSummary?.text ? markdownToPdfmakeContent(quiz.aiSummary.text) : [{ text: '(brak podsumowania)', style: 'body' }];
+
+	const docDefinition = {
+		defaultStyle: {
+			font: 'Roboto',
+			fontSize: 10,
+		},
+		content: [
+			{ text: 'Gusta — wynik', style: 'title' },
+			{ text: `Kod pokoju: ${room.code}`, style: 'meta' },
+			quiz.summary?.agreementPercent != null ? { text: `Zgodność: ${quiz.summary.agreementPercent}%`, style: 'meta' } : null,
+			{
+				text: 'Legenda: wynik ujemny = bliżej lewej strony osi, dodatni = bliżej prawej; „Różnica” = |Ty − Partner|.',
+				style: 'hint',
+			},
+			{ text: 'Osie', style: 'h2' },
+			{
+				table: {
+					headerRows: 1,
+					widths: ['*', 55, 55, 55],
+					body: axesBody,
+				},
+				layout: {
+					fillColor: (rowIndex: number) => (rowIndex === 0 ? '#eeeeee' : null),
+				},
+			},
+			{ text: 'Podsumowanie', style: 'h2' },
+			...summaryBlocks,
+		].filter(Boolean),
+		styles: {
+			title: { fontSize: 16, bold: true, margin: [0, 0, 0, 6] },
+			h2: { fontSize: 12, bold: true, margin: [0, 14, 0, 6] },
+			meta: { color: '#444444', margin: [0, 0, 0, 2] },
+			hint: { color: '#444444', margin: [0, 6, 0, 10] },
+			body: { lineHeight: 1.2 },
+		},
+		pageMargins: [40, 40, 40, 40],
+	};
+
+	pdfMakeAny.createPdf?.(docDefinition).download(filename);
 }
 
 function useRoomStream(roomId: string | null, onUpdate: (room: RoomView) => void) {
@@ -282,8 +780,14 @@ function BlindRoundView(props: {
 	const [showLeftDescription, setShowLeftDescription] = useState(false);
 	const [showRightDescription, setShowRightDescription] = useState(false);
 
+	const isWords = left.source === 'manual' && right.source === 'manual';
+	const [leftTilt, setLeftTilt] = useState(0);
+	const [rightTilt, setRightTilt] = useState(0);
 	const leftSrc = left.imageUrl || '/globe.svg';
 	const rightSrc = right.imageUrl || '/globe.svg';
+	const leftAccent = useMemo(() => pickWordAccent(left.title), [left.title]);
+	type Accent = ReturnType<typeof pickWordAccent>;
+	const rightAccent: Accent = useMemo(() => pickWordAccent(right.title), [right.title]);
 	return (
 		<div className="w-full">
 			<div className="mb-2 flex items-center justify-between">
@@ -291,9 +795,14 @@ function BlindRoundView(props: {
 				<p className="text-xs text-zinc-500">{statsText}</p>
 			</div>
 
-			<div className="grid gap-4 sm:grid-cols-2">
-				<div className="relative overflow-hidden rounded-3xl border border-black/8 bg-zinc-100 dark:border-white/[.145] dark:bg-zinc-900">
-					{showLeftDescription && left.description ? (
+			<div className="grid grid-cols-2 gap-3 sm:gap-4">
+				<div
+					className={`relative overflow-hidden rounded-3xl border border-black/8 bg-zinc-100 dark:border-white/[.145] dark:bg-zinc-900 ${
+						isWords && leftTilt > 0 ? styles.wordTiltLeft : ''
+					}`}
+					key={isWords ? `words-left-${leftTilt}` : undefined}
+				>
+					{!isWords && showLeftDescription && left.description ? (
 						<div
 							role="dialog"
 							aria-label="Opis karty"
@@ -327,16 +836,31 @@ function BlindRoundView(props: {
 							</div>
 						</div>
 					) : null}
-					<div className="relative aspect-2/3 w-full">
-						<Image
-							src={leftSrc}
-							alt={left.title}
-							fill
-							sizes="(max-width: 768px) 100vw, 420px"
-							className="object-cover"
-							unoptimized
-						/>
-					</div>
+					{isWords ? (
+						<div className="relative flex aspect-2/3 w-full items-center justify-center p-6 text-center">
+							<div className={`pointer-events-none absolute inset-0 ${leftAccent.bgClass}`} aria-hidden="true" />
+							<div className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-zinc-700 dark:bg-white/10 dark:text-white/80">
+								{(() => {
+									const Icon = pickWordIcon(left.title);
+									return <Icon className="h-5 w-5" />;
+								})()}
+							</div>
+							<p className="relative text-xl font-semibold leading-tight text-zinc-900 dark:text-white sm:text-2xl">
+								{left.title}
+							</p>
+						</div>
+					) : (
+						<div className="relative aspect-2/3 w-full">
+							<Image
+								src={leftSrc}
+								alt={left.title}
+								fill
+								sizes="(max-width: 768px) 100vw, 420px"
+								className="object-cover"
+								unoptimized
+							/>
+						</div>
+					)}
 
 					{leftPopKey ? (
 						<div key={leftPopKey} className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -348,41 +872,65 @@ function BlindRoundView(props: {
 						</div>
 					) : null}
 
-					<div className="absolute inset-x-0 bottom-0 p-4">
-						<div className="inline-flex max-w-full flex-col rounded-2xl bg-black/65 p-3 text-white backdrop-blur">
-							<h2 className="text-lg font-semibold">{left.title}</h2>
-							<div className="mt-2">
-								<button
-									type="button"
-									disabled={!left.description}
-									onPointerDown={(e) => e.stopPropagation()}
-									onClick={(e) => {
-										e.stopPropagation();
-										setShowLeftDescription((v) => !v);
-									}}
-									title={!left.description ? 'Brak opisu.' : undefined}
-									className="text-left text-xs font-semibold text-white/90 underline underline-offset-2 disabled:opacity-60"
-								>
-									Zobacz opis
-								</button>
+					{!isWords ? (
+						<div className="absolute inset-x-0 bottom-0 p-4">
+							<div className="inline-flex max-w-full flex-col rounded-2xl bg-black/65 p-3 text-white backdrop-blur">
+								<h2 className="text-lg font-semibold">{left.title}</h2>
+								<div className="mt-2">
+									<button
+										type="button"
+										disabled={!left.description}
+										onPointerDown={(e) => e.stopPropagation()}
+										onClick={(e) => {
+											e.stopPropagation();
+											setShowLeftDescription((v) => !v);
+										}}
+										title={!left.description ? 'Brak opisu.' : undefined}
+										className="text-left text-xs font-semibold text-white/90 underline underline-offset-2 disabled:opacity-60"
+									>
+										Zobacz opis
+									</button>
+								</div>
 							</div>
 						</div>
-					</div>
-					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-						<button
-							type="button"
-							disabled={disabled}
-							onClick={onPickLeft}
-							aria-label="Wybierz lewą kartę"
-							className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50"
-						>
-							<Heart className="h-7 w-7" />
-						</button>
-					</div>
+					) : null}
+					{isWords ? (
+						<div className="pointer-events-none absolute inset-x-0 bottom-6 flex items-center justify-center">
+							<button
+								type="button"
+								disabled={disabled}
+								onClick={() => {
+								setLeftTilt((n) => n + 1);
+								onPickLeft();
+							}}
+								aria-label="Wybierz lewą kartę"
+								className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50 sm:h-14 sm:w-14"
+							>
+								<Heart className="h-7 w-7" />
+							</button>
+						</div>
+					) : (
+						<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+							<button
+								type="button"
+								disabled={disabled}
+								onClick={onPickLeft}
+								aria-label="Wybierz lewą kartę"
+								className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50"
+							>
+								<Heart className="h-7 w-7" />
+							</button>
+						</div>
+					)}
 				</div>
 
-				<div className="relative overflow-hidden rounded-3xl border border-black/8 bg-zinc-100 dark:border-white/[.145] dark:bg-zinc-900">
-					{showRightDescription && right.description ? (
+				<div
+					className={`relative overflow-hidden rounded-3xl border border-black/8 bg-zinc-100 dark:border-white/[.145] dark:bg-zinc-900 ${
+						isWords && rightTilt > 0 ? styles.wordTiltRight : ''
+					}`}
+					key={isWords ? `words-right-${rightTilt}` : undefined}
+				>
+					{!isWords && showRightDescription && right.description ? (
 						<div
 							role="dialog"
 							aria-label="Opis karty"
@@ -416,16 +964,31 @@ function BlindRoundView(props: {
 							</div>
 						</div>
 					) : null}
-					<div className="relative aspect-2/3 w-full">
-						<Image
-							src={rightSrc}
-							alt={right.title}
-							fill
-							sizes="(max-width: 768px) 100vw, 420px"
-							className="object-cover"
-							unoptimized
-						/>
-					</div>
+					{isWords ? (
+						<div className="relative flex aspect-2/3 w-full items-center justify-center p-6 text-center">
+							<div className={`pointer-events-none absolute inset-0 ${rightAccent.bgClass}`} aria-hidden="true" />
+							<div className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-zinc-700 dark:bg-white/10 dark:text-white/80">
+								{(() => {
+									const Icon = pickWordIcon(right.title);
+									return <Icon className="h-5 w-5" />;
+								})()}
+							</div>
+							<p className="relative text-xl font-semibold leading-tight text-zinc-900 dark:text-white sm:text-2xl">
+								{right.title}
+							</p>
+						</div>
+					) : (
+						<div className="relative aspect-2/3 w-full">
+							<Image
+								src={rightSrc}
+								alt={right.title}
+								fill
+								sizes="(max-width: 768px) 100vw, 420px"
+								className="object-cover"
+								unoptimized
+							/>
+						</div>
+					)}
 
 					{rightPopKey ? (
 						<div key={rightPopKey} className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -437,37 +1000,56 @@ function BlindRoundView(props: {
 						</div>
 					) : null}
 
-					<div className="absolute inset-x-0 bottom-0 p-4">
-						<div className="inline-flex max-w-full flex-col rounded-2xl bg-black/65 p-3 text-white backdrop-blur">
-							<h2 className="text-lg font-semibold">{right.title}</h2>
-							<div className="mt-2">
-								<button
-									type="button"
-									disabled={!right.description}
-									onPointerDown={(e) => e.stopPropagation()}
-									onClick={(e) => {
-										e.stopPropagation();
-										setShowRightDescription((v) => !v);
-									}}
-									title={!right.description ? 'Brak opisu.' : undefined}
-									className="text-left text-xs font-semibold text-white/90 underline underline-offset-2 disabled:opacity-60"
-								>
-									Zobacz opis
-								</button>
+					{!isWords ? (
+						<div className="absolute inset-x-0 bottom-0 p-4">
+							<div className="inline-flex max-w-full flex-col rounded-2xl bg-black/65 p-3 text-white backdrop-blur">
+								<h2 className="text-lg font-semibold">{right.title}</h2>
+								<div className="mt-2">
+									<button
+										type="button"
+										disabled={!right.description}
+										onPointerDown={(e) => e.stopPropagation()}
+										onClick={(e) => {
+											e.stopPropagation();
+											setShowRightDescription((v) => !v);
+										}}
+										title={!right.description ? 'Brak opisu.' : undefined}
+										className="text-left text-xs font-semibold text-white/90 underline underline-offset-2 disabled:opacity-60"
+									>
+										Zobacz opis
+									</button>
+								</div>
 							</div>
 						</div>
-					</div>
-					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-						<button
-							type="button"
-							disabled={disabled}
-							onClick={onPickRight}
-							aria-label="Wybierz prawą kartę"
-							className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50"
-						>
-							<Heart className="h-7 w-7" />
-						</button>
-					</div>
+					) : null}
+					{isWords ? (
+						<div className="pointer-events-none absolute inset-x-0 bottom-6 flex items-center justify-center">
+							<button
+								type="button"
+								disabled={disabled}
+								onClick={() => {
+								setRightTilt((n) => n + 1);
+								onPickRight();
+							}}
+								aria-label="Wybierz prawą kartę"
+								className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50 sm:h-14 sm:w-14"
+							>
+								<Heart className="h-7 w-7" />
+							</button>
+						</div>
+					) : (
+						<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+							<button
+								type="button"
+								disabled={disabled}
+								onClick={onPickRight}
+								aria-label="Wybierz prawą kartę"
+								className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50"
+							>
+								<Heart className="h-7 w-7" />
+							</button>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>
@@ -538,17 +1120,15 @@ export function PlayApp() {
 	const [mode, setMode] = useState<RoomMode>('match');
 	const [matchGenreId, setMatchGenreId] = useState<number>(35);
 	const [blindGenreId, setBlindGenreId] = useState<number>(10749);
-	const [quizPackId, setQuizPackId] = useState<QuizPackId>('mix');
 	const [blindParent, setBlindParent] = useState<'movies' | 'words'>('movies');
 	const [blindWordsSubcategory, setBlindWordsSubcategory] = useState<WordPairsSubcategoryId>('adjectives');
+	const [quizPackId, setQuizPackId] = useState<QuizPackId>('mix');
 	const [categoryOpen, setCategoryOpen] = useState(false);
 	const categoryRef = useRef<HTMLDivElement | null>(null);
 	const [code, setCode] = useState('');
 	const [room, setRoom] = useState<RoomView | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
-	const [quizAiLoading, setQuizAiLoading] = useState(false);
-	const [quizAiError, setQuizAiError] = useState<string | null>(null);
 	const [copiedCode, setCopiedCode] = useState(false);
 	const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -601,11 +1181,6 @@ export function PlayApp() {
 		setMyBlindVotedRoundIndexes(new Set());
 	}, [room?.roomId, room?.mode]);
 
-	useEffect(() => {
-		setQuizAiLoading(false);
-		setQuizAiError(null);
-	}, [room?.roomId, room?.mode]);
-
 	const currentMatchCard = useMemo(() => {
 		if (!room || room.mode !== 'match') return null;
 		const cards = room.cards ?? [];
@@ -639,10 +1214,21 @@ export function PlayApp() {
 			return myMatchVotedIds.has(currentMatchCard.id) && votes < 2;
 		}
 
+		if (room.mode === 'quiz') {
+			const quiz = room.quiz;
+			if (!quiz) return false;
+			if (quiz.status !== 'in_progress') return false;
+			const qid = quiz.questionIds[quiz.currentIndex];
+			if (!qid) return false;
+			const myAnswer = quiz.answersByClientId?.[clientId]?.[qid];
+			const votes = quiz.votesByQuestionIndex?.[String(quiz.currentIndex)] ?? 0;
+			return Boolean(myAnswer) && votes < 2;
+		}
+
 		if (!currentRound) return false;
 		const votes = room.blindVotesByRoundIndex?.[String(currentRound.index)] ?? 0;
 		return myBlindVotedRoundIndexes.has(currentRound.index) && votes < 2;
-	}, [room, currentMatchCard, currentRound, myMatchVotedIds, myBlindVotedRoundIndexes]);
+	}, [room, currentMatchCard, currentRound, myMatchVotedIds, myBlindVotedRoundIndexes, clientId]);
 
 	const [expandedCardIds, setExpandedCardIds] = useState<Set<string>>(() => new Set());
 	useEffect(() => {
@@ -668,10 +1254,10 @@ export function PlayApp() {
 			const res = await postJson<{ room: RoomView }>('/api/rooms', {
 				mode,
 				clientId,
-				genreId: mode === 'quiz' ? undefined : genreId,
+				genreId,
+				packId: mode === 'quiz' ? quizPackId : undefined,
 				blindTopic: mode === 'blind' ? blindParent : undefined,
 				wordsSubcategory: mode === 'blind' && blindParent === 'words' ? blindWordsSubcategory : undefined,
-				packId: mode === 'quiz' ? quizPackId : undefined,
 			});
 			setRoom(res.room);
 			setCode(res.room.code);
@@ -694,7 +1280,6 @@ export function PlayApp() {
 				? selectedWordsCategoryLabel
 				: selectedMovieCategoryLabel;
 	const setSelectedGenreId = (next: number) => {
-		if (mode === 'quiz') return;
 		if (mode === 'match') setMatchGenreId(next);
 		else setBlindGenreId(next);
 	};
@@ -707,7 +1292,8 @@ export function PlayApp() {
 		return isWords ? 'words' : 'movies';
 	}, [room]);
 
-	const tipsTopic = room?.mode === 'blind' ? (inferredBlindTopic ?? blindParent) : 'movies';
+	const tipsTopic =
+		room?.mode === 'blind' ? (inferredBlindTopic ?? blindParent) : 'movies';
 	const tipsCategoryLabel =
 		tipsTopic === 'words'
 			? WORD_PAIRS_SUBCATEGORIES.find((s) => s.id === blindWordsSubcategory)?.label ?? null
@@ -773,50 +1359,31 @@ export function PlayApp() {
 		});
 	}
 
-	const quizAxes: QuizAxisId[] = useMemo(
-		() => [
-			'modernClassic',
-			'minimalMaximal',
-			'warmCool',
-			'naturalIndustrial',
-			'boldSafe',
-			'budgetPremium',
-			'planSpontaneous',
-			'socialCozy',
-		],
-		[]
-	);
-
-	const currentQuizQuestion = useMemo(() => {
-		if (!room || room.mode !== 'quiz' || !room.quiz) return null;
-		const qid = room.quiz.questionIds[room.quiz.currentIndex];
-		if (!qid) return null;
-		return getQuestionById(qid);
-	}, [room]);
-
-	const myQuizAnswer = useMemo(() => {
-		if (!room || room.mode !== 'quiz' || !room.quiz) return null;
-		const qid = room.quiz.questionIds[room.quiz.currentIndex];
-		if (!qid) return null;
-		return room.quiz.answersByClientId?.[clientId]?.[qid] ?? null;
-	}, [room, clientId]);
+	const quiz = room?.mode === 'quiz' ? room.quiz ?? null : null;
+	const quizIsFinished = Boolean(quiz && quiz.status === 'completed');
+	const quizQuestionId = quiz ? quiz.questionIds[quiz.currentIndex] ?? null : null;
+	const quizQuestion = quizQuestionId ? getQuestionById(quizQuestionId) : null;
+	const myQuizOptionId = quiz && quizQuestionId ? quiz.answersByClientId?.[clientId]?.[quizQuestionId] ?? null : null;
+	const quizProgressText = quiz ? `${Math.min(quiz.currentIndex + 1, quiz.totalQuestions)}/${quiz.totalQuestions}` : '';
 
 	async function submitQuiz(optionId: string) {
-		if (!room || room.mode !== 'quiz' || !room.quiz) return;
-		const qid = room.quiz.questionIds[room.quiz.currentIndex];
-		if (!qid) return;
+		if (!room || room.mode !== 'quiz') return;
+		if (!quizQuestionId) return;
 		await postJson<{ room: RoomView }>('/api/rooms/quiz/answer', {
 			roomId: room.roomId,
 			clientId,
-			questionId: qid,
+			questionId: quizQuestionId,
 			optionId,
 		});
 	}
 
-	async function generateQuizAiSummary(fresh = false) {
-		if (!room || room.mode !== 'quiz' || !room.quiz) return;
-		setQuizAiError(null);
-		setQuizAiLoading(true);
+	const [quizSummaryLoading, setQuizSummaryLoading] = useState(false);
+	const [quizSummaryError, setQuizSummaryError] = useState<string | null>(null);
+
+	async function generateQuizSummary(fresh = false) {
+		if (!room || room.mode !== 'quiz') return;
+		setQuizSummaryError(null);
+		setQuizSummaryLoading(true);
 		try {
 			const res = await postJson<{ room: RoomView; cached?: boolean }>('/api/rooms/quiz/ai-summary', {
 				roomId: room.roomId,
@@ -824,9 +1391,9 @@ export function PlayApp() {
 			});
 			setRoom(res.room);
 		} catch (e) {
-			setQuizAiError(e instanceof Error ? e.message : 'Nieznany błąd.');
+			setQuizSummaryError(e instanceof Error ? e.message : 'Nieznany błąd.');
 		} finally {
-			setQuizAiLoading(false);
+			setQuizSummaryLoading(false);
 		}
 	}
 
@@ -834,11 +1401,10 @@ export function PlayApp() {
 		<div className="relative min-h-screen font-sans text-zinc-50">
 			<AnimatedBackground text="❤️ MADE WITH LOVE ❤️" />
 			<div className="relative z-10 min-h-screen">
-			{mode !== 'quiz' && room?.mode !== 'quiz' ? (
 			<AiTipsFab
 				context={{
 					topic: tipsTopic,
-					mode: room?.mode ?? 'none',
+					mode: room?.mode === 'quiz' ? 'none' : (room?.mode ?? 'none'),
 					categoryLabel: tipsCategoryLabel,
 					viewLabel:
 						room?.mode === 'blind'
@@ -857,7 +1423,6 @@ export function PlayApp() {
 					rightDescription: room?.mode === 'blind' ? (currentRound?.right.description ?? null) : null,
 				}}
 			/>
-			) : null}
 			<button
 				type="button"
 				onClick={() => void toggleFullscreen()}
@@ -871,7 +1436,7 @@ export function PlayApp() {
 			<main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-6">
 				<header className="flex items-start justify-between gap-3">
 					<div>
-						<h1 className={`${styles.brandTitle} text-3xl tracking-tight text-white/95 mb-3.5`}>
+						<h1 className={`${styles.brandTitle} text-2xl tracking-tight text-white/95 mb-3.5`}>
 							Decyzjomat dla par 💕
 						</h1>
 						<p className="mt-1 text-xs text-white/60">Tryb Tinder + porównanie wyborów na 2 urządzeniach</p>
@@ -918,7 +1483,7 @@ export function PlayApp() {
 									: 'border border-white/10 bg-white/5 text-white/80'
 							}`}
 						>
-							Gusty
+							Gusta
 						</button>
 					</div>
 
@@ -999,48 +1564,48 @@ export function PlayApp() {
 									aria-label="Wybierz kategorię"
 									className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/60 p-1 text-white backdrop-blur-xl"
 								>
-									{mode === 'quiz'
-										? (Object.keys(QUIZ_PACKS) as QuizPackId[]).map((pid) => {
-												const label = QUIZ_PACKS[pid].label;
-												const selected = pid === quizPackId;
-												if (selected) {
+										{mode === 'quiz'
+											? (Object.keys(QUIZ_PACKS) as QuizPackId[]).map((packId) => {
+													const selected = packId === quizPackId;
+													const label = QUIZ_PACKS[packId]?.label ?? packId;
+													if (selected) {
+														return (
+															<button
+																type="button"
+																role="option"
+																aria-selected="true"
+																key={packId}
+																onClick={() => {
+																	setQuizPackId(packId);
+																	setCategoryOpen(false);
+																}}
+																className="flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none"
+														>
+															<span className="truncate">{label}</span>
+															<Check className="h-4 w-4 text-white/80" />
+														</button>
+														);
+													}
+
 													return (
 														<button
 															type="button"
 															role="option"
-															aria-selected="true"
-															key={pid}
+															aria-selected="false"
+															key={packId}
 															onClick={() => {
-																setQuizPackId(pid);
+																setQuizPackId(packId);
 																setCategoryOpen(false);
 															}}
-															className="flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none"
+															className="flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none"
 													>
-															<span className="truncate">{label}</span>
-															<Check className="h-4 w-4 text-white/80" />
-													</button>
-												);
-											}
-
-											return (
-													<button
-														type="button"
-														role="option"
-														aria-selected="false"
-														key={pid}
-														onClick={() => {
-															setQuizPackId(pid);
-															setCategoryOpen(false);
-														}}
-														className="flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none"
-												>
 														<span className="truncate">{label}</span>
 														<span className="h-4 w-4" />
 													</button>
-											);
-										})
-										: mode === 'blind' && blindParent === 'words'
-										? WORD_PAIRS_SUBCATEGORIES.map((s) => {
+													);
+												})
+											: mode === 'blind' && blindParent === 'words'
+												? WORD_PAIRS_SUBCATEGORIES.map((s) => {
 												const selected = s.id === blindWordsSubcategory;
 												if (selected) {
 													return (
@@ -1077,7 +1642,7 @@ export function PlayApp() {
 														<span className="h-4 w-4" />
 													</button>
 												);
-										  })
+											  })
 										: ROOM_CATEGORIES.map((c) => {
 												const selected = c.genreId === selectedGenreId;
 												if (selected) {
@@ -1212,110 +1777,175 @@ export function PlayApp() {
 									<p className="text-sm text-white/60">Brak kart.</p>
 								)}
 							</div>
-						) : room.mode === 'quiz' && room.quiz ? (
-							room.quiz.status === 'completed' ? (
-								<div>
-									<div className="mb-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-										<p className="text-sm font-semibold">Wynik</p>
-										{room.quiz.summary ? (
-											<p className="mt-1 text-xs text-white/70">Zgodność: {room.quiz.summary.agreementPercent}%</p>
-										) : (
-											<p className="mt-1 text-xs text-white/70">Quiz ukończony.</p>
-										)}
+						) : room.mode === 'quiz' ? (
+							<div className="space-y-4">
+								{quiz ? (
+									<div className="flex items-center justify-between">
+										<p className="text-xs font-semibold text-white/60">
+											Pakiet: <span className="text-white/85">{QUIZ_PACKS[quiz.packId]?.label ?? quiz.packId}</span>
+										</p>
+										<p className="text-xs font-semibold text-white/60">{quizIsFinished ? 'Zakończone' : quizProgressText}</p>
 									</div>
+								) : null}
 
-									<div className="flex flex-col gap-2">
-										{quizAxes.map((axisId) => {
-											const me = room.quiz?.scoresByClientId?.[clientId]?.[axisId] ?? 0;
-											const partnerId = room.participantClientIds.find((id) => id !== clientId);
-											const partner = partnerId ? room.quiz?.scoresByClientId?.[partnerId]?.[axisId] ?? 0 : 0;
-											const diff = Math.abs(me - partner);
-											return (
-												<div key={axisId} className="rounded-2xl border border-white/10 bg-white/5 p-3">
-													<p className="text-xs font-semibold text-white/80">{getAxisLabel(axisId)}</p>
-													<p className="mt-1 text-xs text-white/70">Ty: {me} • Partner: {partner} • Różnica: {diff}</p>
+								{!quiz ? (
+									<p className="text-sm text-white/60">Brak danych quizu.</p>
+								) : quizIsFinished ? (
+									<div className="space-y-4">
+										<div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+											<p className="text-sm font-semibold text-white/95">Wynik</p>
+											{quiz.summary?.agreementPercent != null ? (
+												<p className="mt-1 text-xs text-white/70">Zgodność: {quiz.summary.agreementPercent}%</p>
+											) : null}
+											<div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-white/60">
+												<span className="inline-flex items-center gap-2">
+													<span className="h-2 w-2 rounded-full bg-white/80" /> Ty
+												</span>
+												<span className="inline-flex items-center gap-2">
+													<span className="h-2 w-2 rounded-full bg-white/50" /> Partner
+												</span>
+												<span className="inline-flex items-center gap-2">
+													<span className="h-2 w-px bg-white/35" /> Środek osi
+												</span>
+											</div>
+											<p className="mt-2 text-xs text-white/60">
+												Jak liczymy punkty: każda odpowiedź dodaje/odejmuje punkty na wybranych osiach, a wynik osi to suma z całego testu.
+												Wynik ujemny ciągnie w lewo, dodatni w prawo; „Różnica” to odległość między Waszymi wynikami.
+												Skala min/0/max pod termometrem jest liczona z możliwych odpowiedzi w tym konkretnym zestawie pytań.
+											</p>
+										</div>
+
+										<div className="space-y-3">
+											{QUIZ_AXES.map((axisId) => {
+												const partnerId = room.participantClientIds.find((id) => id !== clientId) ?? null;
+												const me = quiz.scoresByClientId?.[clientId]?.[axisId] ?? 0;
+												const partner = partnerId ? quiz.scoresByClientId?.[partnerId]?.[axisId] ?? 0 : 0;
+												const diff = Math.abs(me - partner);
+												const range = computeAxisScoreRange(quiz.questionIds, axisId);
+															const denom = Math.max(1, range.max - range.min);
+															const zeroPct = clamp(((0 - range.min) / denom) * 100, 0, 100);
+															const mePct = clamp(((me - range.min) / denom) * 100, 0, 100);
+															const partnerPct = clamp(((partner - range.min) / denom) * 100, 0, 100);
+												const poles = splitAxisPoles(axisId);
+
+												return (
+													<div key={axisId} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+														<div className="flex items-start justify-between gap-2">
+															<p className="text-xs font-semibold text-white/85">{getAxisLabel(axisId)}</p>
+															<p className="text-xs text-white/60">Różnica: {diff}</p>
+														</div>
+
+														<div className="mt-2">
+															<div className="relative h-2 w-full overflow-hidden rounded-full bg-white/10">
+																<div
+																	className={`absolute top-0 h-2 w-px -translate-x-1/2 bg-white/35 ${pctToLeftClass(zeroPct)}`}
+																/>
+																<div
+																	className={`absolute top-0 h-2 w-2 -translate-x-1/2 rounded-full bg-white/80 ${pctToLeftClass(mePct)}`}
+																/>
+																<div
+																	className={`absolute top-0 h-2 w-2 -translate-x-1/2 rounded-full bg-white/50 ${pctToLeftClass(partnerPct)}`}
+																/>
+															</div>
+															<div className="relative mt-1 h-4 text-[10px] text-white/45">
+																<span className="absolute left-0 tabular-nums">{range.min}</span>
+																<span
+																	className={`absolute top-0 -translate-x-1/2 tabular-nums ${pctToLeftClass(zeroPct)}`}
+																>
+																	0
+																</span>
+																<span className="absolute right-0 tabular-nums">{range.max}</span>
+															</div>
+															<div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-white/60">
+																<span className="truncate">{poles.left}</span>
+																<span className="truncate">{poles.right}</span>
+															</div>
+															<div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-white/60">
+																<span>Ty: {me}</span>
+																<span>Partner: {partner}</span>
+															</div>
+														</div>
 												</div>
 											);
-										})}
-									</div>
+												})}
+										</div>
 
-									<div className="mt-3 flex gap-2">
-										<button
-											type="button"
-											onClick={() =>
-												downloadJson(`gusty-${room.code}.json`, {
-													roomId: room.roomId,
-													code: room.code,
-													createdAt: room.createdAt,
-													mode: room.mode,
-													quiz: room.quiz,
-												})
-											}
-											className="h-10 flex-1 rounded-full border border-white/10 bg-white/15 text-sm font-semibold text-white"
-										>
-											Pobierz JSON
-										</button>
-									</div>
+										<div className="flex gap-2">
+											<button
+												type="button"
+												onClick={() =>
+													downloadGustyPdf({ filename: `gusta-${room.code}.pdf`, room, clientId, quizAxes: QUIZ_AXES })
+												}
+												className="h-10 flex-1 rounded-full border border-white/10 bg-white/15 text-sm font-semibold text-white"
+											>
+												Pobierz PDF
+											</button>
+										</div>
 
-									<div className="mt-3">
-										{room.quiz.aiSummary?.text ? (
-											<div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-												<p className="text-sm font-semibold">Porady AI</p>
-												<p className="mt-2 text-sm text-white/85 whitespace-pre-wrap">{room.quiz.aiSummary.text}</p>
-												<div className="mt-3 flex gap-2">
-													<button
-														type="button"
-														onClick={() => void generateQuizAiSummary(true)}
-														disabled={quizAiLoading}
-														className="h-10 flex-1 rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-white/90 disabled:opacity-50"
-													>
-														Odśwież porady
-													</button>
-												</div>
-											</div>
-										) : (
-											<div>
+										<div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+											<div className="flex items-center justify-between gap-2">
+												<p className="text-sm font-semibold text-white/95">Podsumowanie</p>
 												<button
 													type="button"
-													onClick={() => void generateQuizAiSummary(false)}
-													disabled={quizAiLoading}
-													className="h-10 w-full rounded-full border border-white/10 bg-white/15 text-sm font-semibold text-white disabled:opacity-50"
+													onClick={() => void generateQuizSummary(Boolean(quiz.aiSummary?.text))}
+													disabled={quizSummaryLoading}
+													className="h-8 rounded-full border border-white/10 bg-white/10 px-3 text-xs font-semibold text-white/90 disabled:opacity-50"
 												>
-													{quizAiLoading ? 'Generuję…' : 'Generuj porady AI'}
+													{quizSummaryLoading ? (quiz.aiSummary?.text ? 'Odświeżam…' : 'Generuję…') : quiz.aiSummary?.text ? 'Odśwież' : 'Generuj'}
 												</button>
-												{quizAiError ? <p className="mt-2 text-xs text-red-400">{quizAiError}</p> : null}
 											</div>
+
+											{quizSummaryError ? <p className="mt-2 text-xs text-red-400">{quizSummaryError}</p> : null}
+											{quiz.aiSummary?.text ? (
+												<div className="mt-3">{renderMarkdownLite(quiz.aiSummary.text)}</div>
+											) : (
+												<p className="mt-2 text-xs text-white/60">Kliknij „Generuj”, żeby dostać krótkie, konkretne zasady kompromisu.</p>
+											)}
+										</div>
+									</div>
+								) : (
+									<div className="space-y-3">
+										{!isReady ? <p className="text-xs font-semibold text-white/60">Połączcie się we dwoje, żeby zacząć.</p> : null}
+										{quizQuestion ? (
+											<div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+												<p className="text-sm font-semibold text-white/95">{quizQuestion.prompt}</p>
+												<p className="mt-1 text-xs text-white/60">Wybierz najbliższą odpowiedź.</p>
+											</div>
+										) : (
+											<p className="text-sm text-white/60">Brak pytania.</p>
 										)}
-									</div>
-								</div>
-							) : currentQuizQuestion ? (
-								<div>
-									<p className="text-xs font-semibold text-white/60">
-										Pytanie {room.quiz.currentIndex + 1}/{room.quiz.totalQuestions} — {QUIZ_PACKS[room.quiz.packId].label}
-									</p>
-									<p className="mt-2 text-sm font-semibold">{currentQuizQuestion.prompt}</p>
 
-									<div className="mt-3 flex flex-col gap-2">
-										{currentQuizQuestion.options.map((opt) => (
-											<button
-												key={opt.id}
-												type="button"
-												onClick={() => void submitQuiz(opt.id)}
-												disabled={!isReady || Boolean(myQuizAnswer)}
-												className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm font-semibold text-white/90 disabled:opacity-50"
-											>
-												{opt.label}
-											</button>
-										))}
-									</div>
+										{quizQuestion ? (
+											<div className="space-y-2">
+												{quizQuestion.options.map((opt) => {
+													const selected = opt.id === myQuizOptionId;
+													const disabled = !isReady || Boolean(myQuizOptionId);
+													return (
+														<button
+															key={opt.id}
+															type="button"
+															onClick={() => void submitQuiz(opt.id)}
+															disabled={disabled}
+															className={`w-full rounded-2xl border px-3 py-3 text-left text-sm font-semibold backdrop-blur-xl disabled:opacity-60 ${
+															selected
+																? 'border-white/10 bg-white/15 text-white'
+																: 'border-white/10 bg-white/5 text-white/90 hover:bg-white/10'
+														}`}
+													>
+														<div className="flex items-center justify-between gap-2">
+															<span className="truncate">{opt.label}</span>
+															{selected ? <Check className="h-4 w-4 text-white/80" /> : null}
+														</div>
+													</button>
+													);
+												})}
+											</div>
+										) : null}
 
-									{myQuizAnswer ? (
-										<p className="mt-3 text-xs font-semibold text-white/60">Czekam na odpowiedź partnera…</p>
-									) : null}
-								</div>
-							) : (
-								<p className="text-sm text-white/60">Brak pytania.</p>
-							)
+										{myQuizOptionId ? <p className="text-xs font-semibold text-white/60">Wybrane. Czekam na partnera…</p> : null}
+									</div>
+								)}
+							</div>
 						) : currentRound ? (
 							<BlindRoundView
 								key={`${room?.roomId ?? 'room'}:${currentRound.index}:${currentRound.left.id}:${currentRound.right.id}`}

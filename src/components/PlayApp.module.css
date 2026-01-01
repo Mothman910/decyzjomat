@@ -17,6 +17,38 @@
 	animation: choicePop 600ms ease-out both;
 }
 
+@keyframes wordTiltLeft {
+	0% {
+		transform: rotate(0deg) translateX(0);
+	}
+	40% {
+		transform: rotate(-3deg) translateX(-6px);
+	}
+	100% {
+		transform: rotate(0deg) translateX(0);
+	}
+}
+
+@keyframes wordTiltRight {
+	0% {
+		transform: rotate(0deg) translateX(0);
+	}
+	40% {
+		transform: rotate(3deg) translateX(6px);
+	}
+	100% {
+		transform: rotate(0deg) translateX(0);
+	}
+}
+
+.wordTiltLeft {
+	animation: wordTiltLeft 240ms ease-out both;
+}
+
+.wordTiltRight {
+	animation: wordTiltRight 240ms ease-out both;
+}
+
 .brandTitle {
 	font-family: var(--font-emilys-candy);
 }

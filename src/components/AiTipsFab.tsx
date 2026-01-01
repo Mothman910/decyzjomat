@@ -123,9 +123,9 @@ export function AiTipsFab(props: {
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="fixed bottom-4 left-4 z-50 inline-flex h-12 items-center gap-2 rounded-full bg-black/80 px-4 text-sm font-semibold text-white backdrop-blur"
-				aria-label="Porady AI"
-				title="Porady AI"
+				className="fixed bottom-4 left-4 z-50 inline-flex h-12 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl"
+				aria-label="Porady"
+				title="Porady"
 			>
 				<Lightbulb className="h-5 w-5" />
 				Porady
