@@ -5,6 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Copy, Heart, Maximize2, Minimize2, X } from 'lucide-react';
 import type { DecisionCard } from '@/types/decisionCard';
 import type { RoomMode, RoomView } from '@/types/room';
+import { AiTipsFab } from '@/components/AiTipsFab';
+import { AnimatedBackground } from '@/components/AnimatedBackground';
+import { WORD_PAIRS_SUBCATEGORIES, type WordPairsSubcategoryId } from '@/lib/wordPairs';
 import styles from './PlayApp.module.css';
 
 const ROOM_CATEGORIES: Array<{ label: string; genreId: number }> = [
@@ -244,7 +247,6 @@ function TinderCard(props: {
 }
 
 function BlindRoundView(props: {
-	roundIndex: number;
 	left: DecisionCard;
 	right: DecisionCard;
 	onPickLeft: () => void;
@@ -264,6 +266,9 @@ function BlindRoundView(props: {
 		leftPopKey,
 		rightPopKey,
 	} = props;
+	const [showLeftDescription, setShowLeftDescription] = useState(false);
+	const [showRightDescription, setShowRightDescription] = useState(false);
+
 	const leftSrc = left.imageUrl || '/globe.svg';
 	const rightSrc = right.imageUrl || '/globe.svg';
 	return (
@@ -275,6 +280,40 @@ function BlindRoundView(props: {
 
 			<div className="grid gap-4 sm:grid-cols-2">
 				<div className="relative overflow-hidden rounded-3xl border border-black/8 bg-zinc-100 dark:border-white/[.145] dark:bg-zinc-900">
+					{showLeftDescription && left.description ? (
+						<div
+							role="dialog"
+							aria-label="Opis karty"
+							className="absolute inset-0 z-20 flex items-end p-4"
+							onPointerDown={(e) => e.stopPropagation()}
+							onClick={(e) => e.stopPropagation()}
+						>
+							<button
+								type="button"
+								aria-label="Zamknij opis"
+								onClick={() => setShowLeftDescription(false)}
+								className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+							/>
+							<div className="relative w-full rounded-2xl bg-black/70 p-4 text-white backdrop-blur">
+								<div className="flex items-center justify-between gap-3">
+									<p className="text-sm font-semibold">Opis</p>
+									<button
+										type="button"
+										aria-label="Zamknij"
+										onPointerDown={(e) => e.stopPropagation()}
+										onClick={(e) => {
+											e.stopPropagation();
+											setShowLeftDescription(false);
+										}}
+										className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white hover:bg-black/40"
+									>
+										<X className="h-5 w-5" />
+									</button>
+								</div>
+								<p className="mt-2 text-sm text-white/90">{left.description}</p>
+							</div>
+						</div>
+					) : null}
 					<div className="relative aspect-2/3 w-full">
 						<Image
 							src={leftSrc}
@@ -297,8 +336,23 @@ function BlindRoundView(props: {
 					) : null}
 
 					<div className="absolute inset-x-0 bottom-0 p-4">
-						<div className="inline-flex max-w-full rounded-2xl bg-black/65 p-3 text-white backdrop-blur">
+						<div className="inline-flex max-w-full flex-col rounded-2xl bg-black/65 p-3 text-white backdrop-blur">
 							<h2 className="text-lg font-semibold">{left.title}</h2>
+							<div className="mt-2">
+								<button
+									type="button"
+									disabled={!left.description}
+									onPointerDown={(e) => e.stopPropagation()}
+									onClick={(e) => {
+										e.stopPropagation();
+										setShowLeftDescription((v) => !v);
+									}}
+									title={!left.description ? 'Brak opisu.' : undefined}
+									className="text-left text-xs font-semibold text-white/90 underline underline-offset-2 disabled:opacity-60"
+								>
+									Zobacz opis
+								</button>
+							</div>
 						</div>
 					</div>
 					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -315,6 +369,40 @@ function BlindRoundView(props: {
 				</div>
 
 				<div className="relative overflow-hidden rounded-3xl border border-black/8 bg-zinc-100 dark:border-white/[.145] dark:bg-zinc-900">
+					{showRightDescription && right.description ? (
+						<div
+							role="dialog"
+							aria-label="Opis karty"
+							className="absolute inset-0 z-20 flex items-end p-4"
+							onPointerDown={(e) => e.stopPropagation()}
+							onClick={(e) => e.stopPropagation()}
+						>
+							<button
+								type="button"
+								aria-label="Zamknij opis"
+								onClick={() => setShowRightDescription(false)}
+								className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+							/>
+							<div className="relative w-full rounded-2xl bg-black/70 p-4 text-white backdrop-blur">
+								<div className="flex items-center justify-between gap-3">
+									<p className="text-sm font-semibold">Opis</p>
+									<button
+										type="button"
+										aria-label="Zamknij"
+										onPointerDown={(e) => e.stopPropagation()}
+										onClick={(e) => {
+											e.stopPropagation();
+											setShowRightDescription(false);
+										}}
+										className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white hover:bg-black/40"
+									>
+										<X className="h-5 w-5" />
+									</button>
+								</div>
+								<p className="mt-2 text-sm text-white/90">{right.description}</p>
+							</div>
+						</div>
+					) : null}
 					<div className="relative aspect-2/3 w-full">
 						<Image
 							src={rightSrc}
@@ -337,8 +425,23 @@ function BlindRoundView(props: {
 					) : null}
 
 					<div className="absolute inset-x-0 bottom-0 p-4">
-						<div className="inline-flex max-w-full rounded-2xl bg-black/65 p-3 text-white backdrop-blur">
+						<div className="inline-flex max-w-full flex-col rounded-2xl bg-black/65 p-3 text-white backdrop-blur">
 							<h2 className="text-lg font-semibold">{right.title}</h2>
+							<div className="mt-2">
+								<button
+									type="button"
+									disabled={!right.description}
+									onPointerDown={(e) => e.stopPropagation()}
+									onClick={(e) => {
+										e.stopPropagation();
+										setShowRightDescription((v) => !v);
+									}}
+									title={!right.description ? 'Brak opisu.' : undefined}
+									className="text-left text-xs font-semibold text-white/90 underline underline-offset-2 disabled:opacity-60"
+								>
+									Zobacz opis
+								</button>
+							</div>
 						</div>
 					</div>
 					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -370,11 +473,11 @@ function BlindSummaryView(props: {
 	const { meClientId, participantClientIds, rounds, picksByClientId, percent, matches, totalRounds } = props;
 	const partnerId = participantClientIds.find((id) => id !== meClientId) ?? null;
 
-	const pickLabel = (roundIndex: number, cid: string | null) => {
+	const pickLabel = (round: (typeof rounds)[number], cid: string | null) => {
 		if (!cid) return '—';
-		const pick = picksByClientId[cid]?.[roundIndex];
-		if (pick === 'left') return 'Lewa';
-		if (pick === 'right') return 'Prawa';
+		const pick = picksByClientId[cid]?.[round.index];
+		if (pick === 'left') return round.left.title;
+		if (pick === 'right') return round.right.title;
 		return '—';
 	};
 
@@ -404,8 +507,8 @@ function BlindSummaryView(props: {
 							<p className="mt-1 text-sm font-semibold">{r.left.title}</p>
 							<p className="text-sm font-semibold">vs {r.right.title}</p>
 							<div className="mt-2 flex items-center justify-between gap-3 text-xs text-zinc-500">
-								<p>Ty: {pickLabel(r.index, meClientId)}</p>
-								<p>Partner: {pickLabel(r.index, partnerId)}</p>
+								<p>Ty: {pickLabel(r, meClientId)}</p>
+								<p>Partner: {pickLabel(r, partnerId)}</p>
 							</div>
 						</div>
 					);
@@ -422,6 +525,8 @@ export function PlayApp() {
 	const [mode, setMode] = useState<RoomMode>('match');
 	const [matchGenreId, setMatchGenreId] = useState<number>(35);
 	const [blindGenreId, setBlindGenreId] = useState<number>(10749);
+	const [blindParent, setBlindParent] = useState<'movies' | 'words'>('movies');
+	const [blindWordsSubcategory, setBlindWordsSubcategory] = useState<WordPairsSubcategoryId>('adjectives');
 	const [categoryOpen, setCategoryOpen] = useState(false);
 	const categoryRef = useRef<HTMLDivElement | null>(null);
 	const [code, setCode] = useState('');
@@ -541,13 +646,12 @@ export function PlayApp() {
 			const genreId = mode === 'match' ? matchGenreId : blindGenreId;
 			const res = await postJson<{ room: RoomView }>('/api/rooms', {
 				mode,
-				genreId,
-			});
-			const joined = await postJson<{ room: RoomView }>('/api/rooms/join', {
-				code: res.room.code,
 				clientId,
+				genreId,
+				blindTopic: mode === 'blind' ? blindParent : undefined,
+				wordsSubcategory: mode === 'blind' && blindParent === 'words' ? blindWordsSubcategory : undefined,
 			});
-			setRoom(joined.room);
+			setRoom(res.room);
 			setCode(res.room.code);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Nieznany błąd.');
@@ -557,11 +661,30 @@ export function PlayApp() {
 	}
 
 	const selectedGenreId = mode === 'match' ? matchGenreId : blindGenreId;
-	const selectedCategoryLabel = ROOM_CATEGORIES.find((c) => c.genreId === selectedGenreId)?.label ?? 'Wybierz…';
+	const selectedMovieCategoryLabel = ROOM_CATEGORIES.find((c) => c.genreId === selectedGenreId)?.label ?? 'Wybierz…';
+	const selectedWordsCategoryLabel =
+		WORD_PAIRS_SUBCATEGORIES.find((s) => s.id === blindWordsSubcategory)?.label ?? 'Wybierz…';
+	const selectedCategoryLabel =
+		mode === 'blind' && blindParent === 'words' ? selectedWordsCategoryLabel : selectedMovieCategoryLabel;
 	const setSelectedGenreId = (next: number) => {
 		if (mode === 'match') setMatchGenreId(next);
 		else setBlindGenreId(next);
 	};
+
+	const inferredBlindTopic = useMemo<'movies' | 'words' | null>(() => {
+		if (!room || room.mode !== 'blind') return null;
+		const r0 = room.rounds?.[0];
+		if (!r0) return 'movies';
+		const isWords = r0.left.source === 'manual' && r0.right.source === 'manual';
+		return isWords ? 'words' : 'movies';
+	}, [room]);
+
+	const tipsTopic =
+		room?.mode === 'blind' ? (inferredBlindTopic ?? blindParent) : 'movies';
+	const tipsCategoryLabel =
+		tipsTopic === 'words'
+			? WORD_PAIRS_SUBCATEGORIES.find((s) => s.id === blindWordsSubcategory)?.label ?? null
+			: selectedMovieCategoryLabel;
 
 	async function handleCopyRoomCode() {
 		if (!room?.code) return;
@@ -624,11 +747,35 @@ export function PlayApp() {
 	}
 
 	return (
-		<div className="min-h-screen bg-zinc-50 font-sans text-black dark:bg-black dark:text-zinc-50">
+		<div className="relative min-h-screen font-sans text-zinc-50">
+			<AnimatedBackground text="❤️ MADE WITH LOVE ❤️" />
+			<div className="relative z-10 min-h-screen">
+			<AiTipsFab
+				context={{
+					topic: tipsTopic,
+					mode: room?.mode ?? 'none',
+					categoryLabel: tipsCategoryLabel,
+					viewLabel:
+						room?.mode === 'blind'
+							? tipsTopic === 'words'
+								? 'Randka w ciemno — Hasła'
+								: 'Randka w ciemno'
+							: room?.mode === 'match'
+								? 'Pierwszy match'
+								: 'Start',
+					waitingForPartner,
+					isReady,
+					currentTitle: room?.mode === 'match' ? (currentMatchCard?.title ?? null) : null,
+					leftTitle: room?.mode === 'blind' ? (currentRound?.left.title ?? null) : null,
+					rightTitle: room?.mode === 'blind' ? (currentRound?.right.title ?? null) : null,
+					leftDescription: room?.mode === 'blind' ? (currentRound?.left.description ?? null) : null,
+					rightDescription: room?.mode === 'blind' ? (currentRound?.right.description ?? null) : null,
+				}}
+			/>
 			<button
 				type="button"
 				onClick={() => void toggleFullscreen()}
-				className="fixed bottom-4 right-4 z-50 inline-flex h-12 items-center gap-2 rounded-full bg-black/80 px-4 text-sm font-semibold text-white backdrop-blur"
+				className="fixed bottom-4 right-4 z-50 inline-flex h-12 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl"
 				aria-label={isFullscreen ? 'Wyjdź z pełnego ekranu' : 'Pełny ekran'}
 				title={isFullscreen ? 'Wyjdź z pełnego ekranu' : 'Pełny ekran'}
 			>
@@ -638,24 +785,24 @@ export function PlayApp() {
 			<main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-6">
 				<header className="flex items-start justify-between gap-3">
 					<div>
-						<h1 className="text-xl font-semibold tracking-tight">Decyzjomat</h1>
-						<p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">Tryb Tinder + porównanie wyborów na 2 urządzeniach</p>
+						<h1 className="text-xl font-semibold tracking-tight text-white/95 font-sans">Decyzjomat dla par 💕</h1>
+						<p className="mt-1 text-xs text-white/60">Tryb Tinder + porównanie wyborów na 2 urządzeniach</p>
 					</div>
 					<div className="text-right">
-						<p className="text-[11px] text-zinc-500">ID: {clientId.slice(0, 6)}…</p>
-						{room ? <p className="text-[11px] text-zinc-500">Kod: {room.code}</p> : null}
+						<p className="text-[11px] text-white/50">ID: {clientId.slice(0, 6)}…</p>
+						{room ? <p className="text-[11px] text-white/50">Kod: {room.code}</p> : null}
 					</div>
 				</header>
 
-				<section className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/[.145] dark:bg-black">
+				<section className="relative z-20 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
 					<div className="flex gap-2">
 						<button
 							type="button"
 							onClick={() => setMode('match')}
 							className={`h-10 flex-1 rounded-full text-sm font-semibold ${
 								mode === 'match'
-									? 'bg-black text-white dark:bg-zinc-50 dark:text-black'
-									: 'border border-black/8 text-black dark:border-white/[.145] dark:text-zinc-50'
+									? 'border border-white/10 bg-white/15 text-white'
+									: 'border border-white/10 bg-white/5 text-white/80'
 							}`}
 						>
 							Pierwszy match
@@ -665,17 +812,57 @@ export function PlayApp() {
 							onClick={() => setMode('blind')}
 							className={`h-10 flex-1 rounded-full text-sm font-semibold ${
 								mode === 'blind'
-									? 'bg-black text-white dark:bg-zinc-50 dark:text-black'
-									: 'border border-black/8 text-black dark:border-white/[.145] dark:text-zinc-50'
+									? 'border border-white/10 bg-white/15 text-white'
+									: 'border border-white/10 bg-white/5 text-white/80'
 							}`}
 						>
 							Randka w ciemno
 						</button>
 					</div>
 
+					{mode === 'blind' ? (
+						<div className="mt-3">
+							<p className="text-xs font-semibold text-white/60">Źródło</p>
+							<div className="mt-1 flex gap-2">
+								<button
+									type="button"
+									onClick={() => {
+										setBlindParent('movies');
+										setCategoryOpen(false);
+									}}
+									className={`h-10 flex-1 rounded-full text-sm font-semibold ${
+										blindParent === 'movies'
+											? 'border border-white/10 bg-white/15 text-white'
+											: 'border border-white/10 bg-white/5 text-white/80'
+									}`}
+								>
+									Filmy
+								</button>
+								<button
+									type="button"
+									onClick={() => {
+										setBlindParent('words');
+										setCategoryOpen(false);
+									}}
+									className={`h-10 flex-1 rounded-full text-sm font-semibold ${
+										blindParent === 'words'
+											? 'border border-white/10 bg-white/15 text-white'
+											: 'border border-white/10 bg-white/5 text-white/80'
+									}`}
+								>
+									Hasła
+								</button>
+							</div>
+						</div>
+					) : null}
+
 					<div className="mt-3">
-						<label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400" htmlFor="room-category">
-							Kategoria
+						<label className="text-xs font-semibold text-white/60" htmlFor="room-category">
+							{mode === 'blind' && blindParent === 'words'
+								? 'Podkategoria'
+								: mode === 'blind'
+									? 'Gatunek'
+									: 'Gatunek'}
 						</label>
 						<div ref={categoryRef} className="relative mt-1">
 							{categoryOpen ? (
@@ -685,7 +872,7 @@ export function PlayApp() {
 									onClick={() => setCategoryOpen(false)}
 									aria-haspopup="listbox"
 									aria-expanded="true"
-									className="flex h-10 w-full items-center justify-between rounded-full border border-black/8 bg-zinc-950 px-4 text-sm font-semibold text-white dark:border-white/[.145]"
+									className="flex h-10 w-full items-center justify-between rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl"
 								>
 									<span className="truncate">{selectedCategoryLabel}</span>
 									<ChevronDown className="h-4 w-4 text-white/80" />
@@ -697,7 +884,7 @@ export function PlayApp() {
 									onClick={() => setCategoryOpen(true)}
 									aria-haspopup="listbox"
 									aria-expanded="false"
-									className="flex h-10 w-full items-center justify-between rounded-full border border-black/8 bg-zinc-950 px-4 text-sm font-semibold text-white dark:border-white/[.145]"
+									className="flex h-10 w-full items-center justify-between rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl"
 								>
 									<span className="truncate">{selectedCategoryLabel}</span>
 									<ChevronDown className="h-4 w-4 text-white/80" />
@@ -708,46 +895,85 @@ export function PlayApp() {
 								<div
 									role="listbox"
 									aria-label="Wybierz kategorię"
-									className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-black/8 bg-zinc-950 p-1 text-white shadow-sm dark:border-white/[.145]"
+									className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/60 p-1 text-white backdrop-blur-xl"
 								>
-									{ROOM_CATEGORIES.map((c) => {
-										const selected = c.genreId === selectedGenreId;
-										if (selected) {
-											return (
-												<button
-													type="button"
-													role="option"
-													aria-selected="true"
-													key={c.genreId}
-													onClick={() => {
-														setSelectedGenreId(c.genreId);
-														setCategoryOpen(false);
-													}}
-													className="flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none"
-												>
-													<span className="truncate">{c.label}</span>
-													<Check className="h-4 w-4 text-white/80" />
-												</button>
-											);
-										}
+									{mode === 'blind' && blindParent === 'words'
+										? WORD_PAIRS_SUBCATEGORIES.map((s) => {
+												const selected = s.id === blindWordsSubcategory;
+												if (selected) {
+													return (
+														<button
+															type="button"
+															role="option"
+															aria-selected="true"
+															key={s.id}
+															onClick={() => {
+															setBlindWordsSubcategory(s.id);
+															setCategoryOpen(false);
+														}}
+														className="flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none"
+													>
+														<span className="truncate">{s.label}</span>
+														<Check className="h-4 w-4 text-white/80" />
+													</button>
+													);
+												}
 
-										return (
-											<button
-												type="button"
-												role="option"
-												aria-selected="false"
-												key={c.genreId}
-												onClick={() => {
-													setSelectedGenreId(c.genreId);
-													setCategoryOpen(false);
-												}}
-												className="flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none"
-											>
-												<span className="truncate">{c.label}</span>
-												<span className="h-4 w-4" />
-											</button>
-										);
-									})}
+											return (
+													<button
+														type="button"
+														role="option"
+														aria-selected="false"
+														key={s.id}
+														onClick={() => {
+															setBlindWordsSubcategory(s.id);
+															setCategoryOpen(false);
+														}}
+														className="flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+													>
+														<span className="truncate">{s.label}</span>
+														<span className="h-4 w-4" />
+													</button>
+												);
+										  })
+										: ROOM_CATEGORIES.map((c) => {
+												const selected = c.genreId === selectedGenreId;
+												if (selected) {
+													return (
+														<button
+															type="button"
+															role="option"
+															aria-selected="true"
+															key={c.genreId}
+															onClick={() => {
+																setSelectedGenreId(c.genreId);
+																setCategoryOpen(false);
+															}}
+															className="flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none"
+													>
+														<span className="truncate">{c.label}</span>
+														<Check className="h-4 w-4 text-white/80" />
+													</button>
+													);
+												}
+
+												return (
+														<button
+															type="button"
+															role="option"
+															aria-selected="false"
+															key={c.genreId}
+															onClick={() => {
+																setSelectedGenreId(c.genreId);
+																setCategoryOpen(false);
+														}}
+														className="flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+													>
+														<span className="truncate">{c.label}</span>
+														<span className="h-4 w-4" />
+													</button>
+												);
+										  })}
 								</div>
 							) : null}
 						</div>
@@ -758,7 +984,7 @@ export function PlayApp() {
 							type="button"
 							onClick={createNewRoom}
 							disabled={!clientId || loading}
-							className="h-10 flex-1 rounded-full bg-black text-sm font-semibold text-white disabled:opacity-50 dark:bg-zinc-50 dark:text-black"
+							className="h-10 flex-1 rounded-full border border-white/10 bg-white/15 text-sm font-semibold text-white disabled:opacity-50"
 						>
 							Utwórz pokój
 						</button>
@@ -766,28 +992,28 @@ export function PlayApp() {
 							value={code}
 							onChange={(e) => setCode(e.target.value.toUpperCase())}
 							placeholder="KOD"
-							className="h-10 w-28 rounded-full border border-black/8 bg-transparent px-3 text-center text-sm font-semibold uppercase outline-none dark:border-white/[.145]"
+							className="h-10 w-28 rounded-full border border-white/15 bg-white/5 px-3 text-center text-sm font-semibold uppercase text-white/90 outline-none placeholder:text-white/40"
 						/>
 						<button
 							type="button"
 							onClick={joinExistingRoom}
 							disabled={!clientId || loading || code.trim().length < 4}
-							className="h-10 w-20 rounded-full border border-black/8 text-sm font-semibold disabled:opacity-50 dark:border-white/[.145]"
+							className="h-10 w-20 rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-white/90 disabled:opacity-50"
 						>
 							Dołącz
 						</button>
 					</div>
 
-					{error ? <p className="mt-2 text-xs text-red-600">{error}</p> : null}
+					{error ? <p className="mt-2 text-xs text-red-400">{error}</p> : null}
 					{room ? (
 						<div className="mt-2 flex items-center justify-between gap-2">
-							<p className="text-xs text-zinc-500">
+							<p className="text-xs text-white/60">
 								Połączcie się na drugim urządzeniu kodem: <span className="font-semibold">{room.code}</span>.
 							</p>
 							<button
 								type="button"
 								onClick={handleCopyRoomCode}
-								className="inline-flex h-8 shrink-0 items-center gap-2 rounded-full border border-black/8 px-3 text-xs font-semibold text-zinc-700 dark:border-white/[.145] dark:text-zinc-200"
+								className="inline-flex h-8 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/80"
 								aria-label="Kopiuj kod pokoju"
 							>
 								{copiedCode ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -798,25 +1024,25 @@ export function PlayApp() {
 				</section>
 
 				{room ? (
-					<section className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/[.145] dark:bg-black">
+					<section className="relative z-10 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
 						<div className="mb-3 flex items-center justify-between">
 							<p className="text-sm font-semibold">
 								{room.participantsCount}/2 połączone {isReady ? '— START' : '— czekam na drugą osobę'}
 							</p>
 							{room.mode === 'blind' && room.blindStats ? (
-								<p className="text-xs text-zinc-500">Zgodność: {room.blindStats.percent}%</p>
+								<p className="text-xs text-white/60">Zgodność: {room.blindStats.percent}%</p>
 							) : null}
 						</div>
 
 						{waitingForPartner ? (
-							<p className="mb-3 text-xs font-semibold text-zinc-500">Czekam na wybór partnera…</p>
+							<p className="mb-3 text-xs font-semibold text-white/60">Czekam na wybór partnera…</p>
 						) : null}
 
 						{room.mode === 'match' ? (
 							<div className="relative">
 								{isMatched && matchCard ? (
 									<div className="absolute inset-0 z-10 flex items-center justify-center">
-										<div className="rounded-3xl bg-black/80 px-6 py-5 text-center text-white backdrop-blur">
+										<div className="rounded-3xl border border-white/10 bg-zinc-950/60 px-6 py-5 text-center text-white backdrop-blur-xl">
 											<p className="text-sm font-semibold">ZGODNOŚĆ</p>
 											<p className="mt-1 text-lg font-semibold">{matchCard.title}</p>
 										</div>
@@ -841,12 +1067,12 @@ export function PlayApp() {
 										onLike={() => void submitMatch('like')}
 									/>
 								) : (
-									<p className="text-sm text-zinc-500">Brak kart.</p>
+									<p className="text-sm text-white/60">Brak kart.</p>
 								)}
 							</div>
 						) : currentRound ? (
 							<BlindRoundView
-								roundIndex={currentRound.index}
+								key={`${room?.roomId ?? 'room'}:${currentRound.index}:${currentRound.left.id}:${currentRound.right.id}`}
 								left={currentRound.left}
 								right={currentRound.right}
 								disabled={!isReady || myBlindVotedRoundIndexes.has(currentRound.index)}
@@ -875,15 +1101,16 @@ export function PlayApp() {
 								totalRounds={room.blindStats?.totalRounds ?? 0}
 							/>
 						) : (
-							<p className="text-sm text-zinc-500">Brak rund.</p>
+							<p className="text-sm text-white/60">Brak rund.</p>
 						)}
 					</section>
 				) : (
-					<section className="rounded-2xl border border-black/8 bg-white p-4 text-sm text-zinc-600 dark:border-white/[.145] dark:bg-black dark:text-zinc-400">
+					<section className="relative z-0 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60 backdrop-blur-xl">
 						Utwórz pokój lub dołącz kodem, żeby zacząć.
 					</section>
 				)}
 			</main>
+			</div>
 		</div>
 	);
 }
