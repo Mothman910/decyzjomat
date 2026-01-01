@@ -1,6 +1,6 @@
 import type { DecisionCard } from '@/types/decisionCard';
 
-export type RoomMode = 'match' | 'blind';
+export type RoomMode = 'match' | 'blind' | 'quiz';
 
 export type MatchDecision = 'like' | 'nope';
 export type BlindPick = 'left' | 'right';
@@ -30,12 +30,47 @@ export type BlindRoomState = {
 	picksByClientId: Record<string, Record<number, BlindPick>>; // clientId -> roundIndex -> pick
 };
 
+export type QuizPackId = 'interiors' | 'lifestyle' | 'mix' | 'food' | 'activities';
+
+export type QuizAxisId =
+	| 'modernClassic'
+	| 'minimalMaximal'
+	| 'warmCool'
+	| 'naturalIndustrial'
+	| 'boldSafe'
+	| 'budgetPremium'
+	| 'planSpontaneous'
+	| 'socialCozy';
+
+export type QuizRunStatus = 'in_progress' | 'completed';
+
+export type QuizSummary = {
+	agreementPercent: number; // 0-100
+	axisDiffs: Record<QuizAxisId, number>; // abs diffs
+	topMatches: Array<{ axisId: QuizAxisId; diff: number }>;
+	topFrictions: Array<{ axisId: QuizAxisId; diff: number }>;
+};
+
+export type QuizRoomState = {
+	mode: 'quiz';
+	quizId: 'gusty-v1';
+	quizVersion: number;
+	packId: QuizPackId;
+	questionIds: string[]; // length = 20
+	currentIndex: number; // 0..20
+	status: QuizRunStatus;
+	answersByClientId: Record<string, Record<string, string>>; // clientId -> questionId -> optionId
+	scoresByClientId: Record<string, Record<QuizAxisId, number>>; // clientId -> axisId -> score
+	summary: QuizSummary | null;
+	aiSummary?: { text: string; inputHash: string } | null;
+};
+
 export type Room = {
 	roomId: string;
 	code: string;
 	createdAt: number;
 	participants: RoomParticipant[]; // max 2
-	state: MatchRoomState | BlindRoomState;
+	state: MatchRoomState | BlindRoomState | QuizRoomState;
 };
 
 export type RoomView = {
@@ -57,5 +92,19 @@ export type RoomView = {
 		totalRounds: number;
 		matches: number;
 		percent: number;
+	};
+	quiz?: {
+		quizId: 'gusty-v1';
+		quizVersion: number;
+		packId: QuizPackId;
+		questionIds: string[];
+		currentIndex: number;
+		totalQuestions: number;
+		status: QuizRunStatus;
+		answersByClientId: Record<string, Record<string, string>>;
+		scoresByClientId: Record<string, Record<QuizAxisId, number>>;
+		votesByQuestionIndex: Record<string, number>; // index -> number of participants answered
+		summary: QuizSummary | null;
+		aiSummary?: { text: string; inputHash: string } | null;
 	};
 };

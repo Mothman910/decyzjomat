@@ -1,5 +1,15 @@
 import type { DecisionCard } from '@/types/decisionCard';
-import type { BlindPick, BlindRound, Room, RoomView } from '@/types/room';
+import type {
+	BlindPick,
+	BlindRound,
+	QuizAxisId,
+	QuizPackId,
+	QuizRoomState,
+	QuizSummary,
+	Room,
+	RoomView,
+} from '@/types/room';
+import { QUIZ_ID, QUIZ_QUESTIONS_PER_RUN, QUIZ_VERSION, getQuestionById, getQuestionsByPack } from '@/lib/quizBank';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +23,10 @@ type RoomCreateInput =
 	| {
 			mode: 'blind';
 			rounds: BlindRound[];
+	  }
+	| {
+			mode: 'quiz';
+			packId: QuizPackId;
 	  };
 
 const rooms = new Map<string, Room>();
@@ -36,6 +50,101 @@ function broadcast(roomId: string, payload: unknown) {
 	const subs = subscribersByRoomId.get(roomId);
 	if (!subs) return;
 	for (const fn of subs) fn(payload);
+}
+
+const QUIZ_AXES: QuizAxisId[] = [
+	'modernClassic',
+	'minimalMaximal',
+	'warmCool',
+	'naturalIndustrial',
+	'boldSafe',
+	'budgetPremium',
+	'planSpontaneous',
+	'socialCozy',
+];
+
+function hashStringToUint32(input: string): number {
+	// FNV-1a 32-bit
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < input.length; i += 1) {
+		hash ^= input.charCodeAt(i);
+		hash = Math.imul(hash, 0x01000193);
+	}
+	return hash >>> 0;
+}
+
+function mulberry32(seed: number): () => number {
+	let t = seed >>> 0;
+	return () => {
+		t += 0x6d2b79f5;
+		let x = t;
+		x = Math.imul(x ^ (x >>> 15), x | 1);
+		x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+		return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+function seededShuffle<T>(items: T[], seed: number): T[] {
+	const out = items.slice();
+	const rnd = mulberry32(seed);
+	for (let i = out.length - 1; i > 0; i -= 1) {
+		const j = Math.floor(rnd() * (i + 1));
+		const tmp = out[i];
+		out[i] = out[j] as T;
+		out[j] = tmp as T;
+	}
+	return out;
+}
+
+function initAxisScores(): Record<QuizAxisId, number> {
+	const scores: Record<QuizAxisId, number> = {
+		modernClassic: 0,
+		minimalMaximal: 0,
+		warmCool: 0,
+		naturalIndustrial: 0,
+		boldSafe: 0,
+		budgetPremium: 0,
+		planSpontaneous: 0,
+		socialCozy: 0,
+	};
+	return scores;
+}
+
+function computeQuizSummary(scoresByClientId: QuizRoomState['scoresByClientId'], clientIds: string[]): QuizSummary | null {
+	if (clientIds.length !== 2) return null;
+	const a = clientIds[0];
+	const b = clientIds[1];
+	if (!a || !b) return null;
+	const sa = scoresByClientId[a];
+	const sb = scoresByClientId[b];
+	if (!sa || !sb) return null;
+
+	const axisDiffs: Record<QuizAxisId, number> = {
+		modernClassic: Math.abs((sa.modernClassic ?? 0) - (sb.modernClassic ?? 0)),
+		minimalMaximal: Math.abs((sa.minimalMaximal ?? 0) - (sb.minimalMaximal ?? 0)),
+		warmCool: Math.abs((sa.warmCool ?? 0) - (sb.warmCool ?? 0)),
+		naturalIndustrial: Math.abs((sa.naturalIndustrial ?? 0) - (sb.naturalIndustrial ?? 0)),
+		boldSafe: Math.abs((sa.boldSafe ?? 0) - (sb.boldSafe ?? 0)),
+		budgetPremium: Math.abs((sa.budgetPremium ?? 0) - (sb.budgetPremium ?? 0)),
+		planSpontaneous: Math.abs((sa.planSpontaneous ?? 0) - (sb.planSpontaneous ?? 0)),
+		socialCozy: Math.abs((sa.socialCozy ?? 0) - (sb.socialCozy ?? 0)),
+	};
+
+	const diffsArray = QUIZ_AXES.map((axisId) => ({ axisId, diff: axisDiffs[axisId] }));
+	const sortedAsc = diffsArray.slice().sort((x, y) => x.diff - y.diff);
+	const sortedDesc = diffsArray.slice().sort((x, y) => y.diff - x.diff);
+
+	const sumDiff = diffsArray.reduce((acc, x) => acc + x.diff, 0);
+	const maxPerAxis = QUIZ_QUESTIONS_PER_RUN * 6; // +/-3 vs +/-3
+	const maxTotal = maxPerAxis * QUIZ_AXES.length;
+	const agreementPercent = Math.max(0, Math.min(100, 100 - Math.round((sumDiff / maxTotal) * 100)));
+
+	return {
+		agreementPercent,
+		axisDiffs,
+		topMatches: sortedAsc.slice(0, 3),
+		topFrictions: sortedDesc.slice(0, 3),
+	};
 }
 
 function getRoomView(room: Room): RoomView {
@@ -66,6 +175,38 @@ function getRoomView(room: Room): RoomView {
 			matchedCardId: room.state.matchedCardId,
 			cards: room.state.cards,
 			matchVotesByCardId,
+		};
+	}
+
+	if (room.state.mode === 'quiz') {
+		const clientIds = room.participants.map((p) => p.clientId);
+		const votesByQuestionIndex: Record<string, number> = {};
+		for (let i = 0; i < room.state.questionIds.length; i += 1) {
+			const qid = room.state.questionIds[i];
+			let votes = 0;
+			for (const cid of clientIds) {
+				const answered = room.state.answersByClientId?.[cid]?.[qid];
+				if (typeof answered === 'string' && answered) votes += 1;
+			}
+			votesByQuestionIndex[String(i)] = votes;
+		}
+
+		return {
+			...base,
+			quiz: {
+				quizId: room.state.quizId,
+				quizVersion: room.state.quizVersion,
+				packId: room.state.packId,
+				questionIds: room.state.questionIds,
+				currentIndex: room.state.currentIndex,
+				totalQuestions: room.state.questionIds.length,
+				status: room.state.status,
+				answersByClientId: room.state.answersByClientId,
+				scoresByClientId: room.state.scoresByClientId,
+				votesByQuestionIndex,
+				summary: room.state.summary,
+				aiSummary: room.state.aiSummary ?? null,
+			},
 		};
 	}
 
@@ -137,7 +278,31 @@ export function createRoom(input: RoomCreateInput): Room {
 		state:
 			input.mode === 'match'
 				? { mode: 'match', cards: input.cards, decisionsByClientId: {}, likesByClientId: {}, matchedCardId: null }
-				: { mode: 'blind', rounds: input.rounds, picksByClientId: {} },
+				: input.mode === 'blind'
+					? { mode: 'blind', rounds: input.rounds, picksByClientId: {} }
+					: (() => {
+						const all = getQuestionsByPack(input.packId);
+						if (all.length < QUIZ_QUESTIONS_PER_RUN) {
+							throw new Error('Za mało pytań w wybranym pakiecie.');
+						}
+						const seed = hashStringToUint32(`${roomId}:${input.packId}:${QUIZ_VERSION}`);
+						const shuffled = seededShuffle(all.map((q) => q.id), seed);
+						const questionIds = shuffled.slice(0, QUIZ_QUESTIONS_PER_RUN);
+						const state: QuizRoomState = {
+							mode: 'quiz',
+							quizId: QUIZ_ID,
+							quizVersion: QUIZ_VERSION,
+							packId: input.packId,
+							questionIds,
+							currentIndex: 0,
+							status: 'in_progress',
+							answersByClientId: {},
+							scoresByClientId: {},
+							summary: null,
+							aiSummary: null,
+						};
+						return state;
+					})(),
 	};
 
 	rooms.set(roomId, room);
@@ -225,6 +390,80 @@ export function submitBlindPick(args: {
 	room.state.picksByClientId[clientId] ??= {};
 	room.state.picksByClientId[clientId][roundIndex] = pick;
 
+	const view = getRoomView(room);
+	broadcast(room.roomId, { type: 'room:update', room: view });
+	return view;
+}
+
+export function submitQuizAnswer(args: {
+	room: Room;
+	clientId: string;
+	questionId: string;
+	optionId: string;
+}): RoomView {
+	const { room, clientId, questionId, optionId } = args;
+	if (room.state.mode !== 'quiz') throw new Error('Nieprawidłowy tryb pokoju.');
+	if (room.state.status !== 'in_progress') throw new Error('Quiz jest już zakończony.');
+	const quiz = room.state;
+
+	if (!room.participants.some((p) => p.clientId === clientId)) {
+		throw new Error('Najpierw dołącz do pokoju.');
+	}
+
+	const expectedQid = quiz.questionIds[quiz.currentIndex];
+	if (!expectedQid) {
+		throw new Error('Brak kolejnego pytania.');
+	}
+	if (questionId !== expectedQid) {
+		throw new Error('Nieprawidłowe pytanie (out of sync).');
+	}
+
+	quiz.answersByClientId[clientId] ??= {};
+	if (quiz.answersByClientId[clientId][questionId]) {
+		// Nie pozwalamy zmieniać odpowiedzi w MVP.
+		return getRoomView(room);
+	}
+
+	const question = getQuestionById(questionId);
+	if (!question) throw new Error('Nie znaleziono pytania.');
+	const option = question.options.find((o) => o.id === optionId);
+	if (!option) throw new Error('Nieprawidłowa odpowiedź.');
+
+	quiz.answersByClientId[clientId][questionId] = optionId;
+	quiz.scoresByClientId[clientId] ??= initAxisScores();
+	for (const axisId of QUIZ_AXES) {
+		const delta = option.weights[axisId] ?? 0;
+		quiz.scoresByClientId[clientId][axisId] += delta;
+	}
+
+	// Jeśli wszyscy aktualni uczestnicy odpowiedzieli na bieżące pytanie, przechodzimy dalej.
+	const clientIds = room.participants.map((p) => p.clientId);
+	const allAnswered = clientIds.every((cid) => {
+		const ans = quiz.answersByClientId[cid]?.[questionId];
+		return typeof ans === 'string' && ans.length > 0;
+	});
+	if (allAnswered) {
+		quiz.currentIndex += 1;
+		if (quiz.currentIndex >= quiz.questionIds.length) {
+			quiz.status = 'completed';
+			quiz.summary = computeQuizSummary(quiz.scoresByClientId, clientIds);
+		}
+	}
+
+	const view = getRoomView(room);
+	broadcast(room.roomId, { type: 'room:update', room: view });
+	return view;
+}
+
+export function setQuizAiSummary(args: {
+	room: Room;
+	inputHash: string;
+	text: string;
+}): RoomView {
+	const { room, inputHash, text } = args;
+	if (room.state.mode !== 'quiz') throw new Error('Nieprawidłowy tryb pokoju.');
+	if (room.state.status !== 'completed') throw new Error('Najpierw ukończ quiz.');
+	room.state.aiSummary = { text, inputHash };
 	const view = getRoomView(room);
 	broadcast(room.roomId, { type: 'room:update', room: view });
 	return view;

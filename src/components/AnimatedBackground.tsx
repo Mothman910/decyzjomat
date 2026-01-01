@@ -178,30 +178,6 @@ function getAttribLocation(gl: WebGLRenderingContext, program: WebGLProgram, nam
   return location;
 }
 
-// Generate heart SVG path from parametric equation
-function generateHeartPath(scale: number = 10, offsetX: number = 200, offsetY: number = 180): string {
-  const points: string[] = [];
-  const steps = 100;
-  
-  for (let i = 0; i <= steps; i++) {
-    const t = (i / steps) * Math.PI * 2;
-    const x = 16 * Math.pow(Math.sin(t), 3);
-    const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
-    
-    const px = offsetX + x * scale;
-    const py = offsetY + y * scale;
-    
-    if (i === 0) {
-      points.push(`M ${px} ${py}`);
-    } else {
-      points.push(`L ${px} ${py}`);
-    }
-  }
-  
-  points.push('Z');
-  return points.join(' ');
-}
-
 // Generate shorter heart path for text animation (open path, trimmed at start/end)
 // This prevents text from overlapping with the heart animation at top
 function generateTextPath(
@@ -235,9 +211,6 @@ function generateTextPath(
   // No 'Z' - keep it as open path
   return points.join(' ');
 }
-
-// Pre-generated heart path for clip-path (full closed path)
-const HEART_PATH = generateHeartPath(10, 200, 180);
 
 // Shorter path for text animation (open, trimmed)
 const TEXT_PATH = generateTextPath(10, 200, 180, 0.05, 0.95);
@@ -280,6 +253,9 @@ export function AnimatedBackground({
 }: AnimatedBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
+  const drawFnRef = useRef<(() => void) | null>(null);
+  const lastFrameRef = useRef<number>(0);
+  const isRunningRef = useRef<boolean>(false);
   const textPathRef = useRef<SVGTextPathElement>(null);
   const textAnimationRef = useRef<number>(0);
   
@@ -310,8 +286,10 @@ export function AnimatedBackground({
     
     let startTime: number | null = null;
     const duration = 25000; // 25 seconds for full loop
+    let running = true;
     
     const animateText = (timestamp: number) => {
+      if (!running || document.hidden) return;
       if (!startTime) startTime = timestamp;
       const elapsed = timestamp - startTime;
       const progress = (elapsed % duration) / duration;
@@ -325,10 +303,25 @@ export function AnimatedBackground({
       
       textAnimationRef.current = requestAnimationFrame(animateText);
     };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(textAnimationRef.current);
+        return;
+      }
+
+      // Resetuj zegar, żeby uniknąć "skoku" po powrocie
+      startTime = null;
+      cancelAnimationFrame(textAnimationRef.current);
+      textAnimationRef.current = requestAnimationFrame(animateText);
+    };
     
     textAnimationRef.current = requestAnimationFrame(animateText);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
+      running = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (textAnimationRef.current) {
         cancelAnimationFrame(textAnimationRef.current);
       }
@@ -347,6 +340,8 @@ export function AnimatedBackground({
       console.error('Unable to initialize WebGL.');
       return;
     }
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     let time = 0.0;
 
@@ -387,19 +382,28 @@ export function AnimatedBackground({
 
     gl.uniform1f(widthHandle, window.innerWidth);
     gl.uniform1f(heightHandle, window.innerHeight);
+    gl.viewport(0, 0, canvas.width, canvas.height);
 
-    let lastFrame = Date.now();
+    lastFrameRef.current = Date.now();
 
     const draw = () => {
+      // Pauza gdy tab niewidoczny (oszczędza CPU/GPU, bez wpływu na UX)
+      if (document.hidden) {
+        isRunningRef.current = false;
+        return;
+      }
+
+      isRunningRef.current = true;
       const thisFrame = Date.now();
-      time += (thisFrame - lastFrame) / 1000;
-      lastFrame = thisFrame;
+      time += (thisFrame - lastFrameRef.current) / 1000;
+      lastFrameRef.current = thisFrame;
 
       gl.uniform1f(timeHandle, time);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
       animationRef.current = requestAnimationFrame(draw);
     };
+    drawFnRef.current = draw;
 
     const handleResize = () => {
       canvas.width = window.innerWidth;
@@ -407,13 +411,42 @@ export function AnimatedBackground({
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.uniform1f(widthHandle, window.innerWidth);
       gl.uniform1f(heightHandle, window.innerHeight);
+      lastFrameRef.current = Date.now();
+      if (prefersReducedMotion) {
+        gl.uniform1f(timeHandle, time);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (!drawFnRef.current) return;
+      if (document.hidden) {
+        cancelAnimationFrame(animationRef.current);
+        isRunningRef.current = false;
+        return;
+      }
+
+      if (!isRunningRef.current) {
+        lastFrameRef.current = Date.now();
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = requestAnimationFrame(drawFnRef.current);
+      }
     };
 
     window.addEventListener('resize', handleResize);
-    draw();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    if (prefersReducedMotion) {
+      // Jedna klatka zamiast animacji — wygląd zostaje, a ruch znika.
+      gl.uniform1f(timeHandle, time);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    } else {
+      draw();
+    }
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       cancelAnimationFrame(animationRef.current);
     };
   }, []);

@@ -4,9 +4,10 @@ import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Copy, Heart, Maximize2, Minimize2, X } from 'lucide-react';
 import type { DecisionCard } from '@/types/decisionCard';
-import type { RoomMode, RoomView } from '@/types/room';
+import type { QuizAxisId, QuizPackId, RoomMode, RoomView } from '@/types/room';
 import { AiTipsFab } from '@/components/AiTipsFab';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
+import { QUIZ_PACKS, getAxisLabel, getQuestionById } from '@/lib/quizBank';
 import { WORD_PAIRS_SUBCATEGORIES, type WordPairsSubcategoryId } from '@/lib/wordPairs';
 import styles from './PlayApp.module.css';
 
@@ -82,6 +83,18 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 		throw new Error(message);
 	}
 	return data;
+}
+
+function downloadJson(filename: string, data: unknown) {
+	const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	URL.revokeObjectURL(url);
 }
 
 function useRoomStream(roomId: string | null, onUpdate: (room: RoomView) => void) {
@@ -525,6 +538,7 @@ export function PlayApp() {
 	const [mode, setMode] = useState<RoomMode>('match');
 	const [matchGenreId, setMatchGenreId] = useState<number>(35);
 	const [blindGenreId, setBlindGenreId] = useState<number>(10749);
+	const [quizPackId, setQuizPackId] = useState<QuizPackId>('mix');
 	const [blindParent, setBlindParent] = useState<'movies' | 'words'>('movies');
 	const [blindWordsSubcategory, setBlindWordsSubcategory] = useState<WordPairsSubcategoryId>('adjectives');
 	const [categoryOpen, setCategoryOpen] = useState(false);
@@ -533,6 +547,8 @@ export function PlayApp() {
 	const [room, setRoom] = useState<RoomView | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
+	const [quizAiLoading, setQuizAiLoading] = useState(false);
+	const [quizAiError, setQuizAiError] = useState<string | null>(null);
 	const [copiedCode, setCopiedCode] = useState(false);
 	const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -583,6 +599,11 @@ export function PlayApp() {
 	useEffect(() => {
 		setMyMatchVotedIds(new Set());
 		setMyBlindVotedRoundIndexes(new Set());
+	}, [room?.roomId, room?.mode]);
+
+	useEffect(() => {
+		setQuizAiLoading(false);
+		setQuizAiError(null);
 	}, [room?.roomId, room?.mode]);
 
 	const currentMatchCard = useMemo(() => {
@@ -647,9 +668,10 @@ export function PlayApp() {
 			const res = await postJson<{ room: RoomView }>('/api/rooms', {
 				mode,
 				clientId,
-				genreId,
+				genreId: mode === 'quiz' ? undefined : genreId,
 				blindTopic: mode === 'blind' ? blindParent : undefined,
 				wordsSubcategory: mode === 'blind' && blindParent === 'words' ? blindWordsSubcategory : undefined,
+				packId: mode === 'quiz' ? quizPackId : undefined,
 			});
 			setRoom(res.room);
 			setCode(res.room.code);
@@ -664,9 +686,15 @@ export function PlayApp() {
 	const selectedMovieCategoryLabel = ROOM_CATEGORIES.find((c) => c.genreId === selectedGenreId)?.label ?? 'Wybierz…';
 	const selectedWordsCategoryLabel =
 		WORD_PAIRS_SUBCATEGORIES.find((s) => s.id === blindWordsSubcategory)?.label ?? 'Wybierz…';
+	const selectedQuizPackLabel = QUIZ_PACKS[quizPackId]?.label ?? 'Wybierz…';
 	const selectedCategoryLabel =
-		mode === 'blind' && blindParent === 'words' ? selectedWordsCategoryLabel : selectedMovieCategoryLabel;
+		mode === 'quiz'
+			? selectedQuizPackLabel
+			: mode === 'blind' && blindParent === 'words'
+				? selectedWordsCategoryLabel
+				: selectedMovieCategoryLabel;
 	const setSelectedGenreId = (next: number) => {
+		if (mode === 'quiz') return;
 		if (mode === 'match') setMatchGenreId(next);
 		else setBlindGenreId(next);
 	};
@@ -679,8 +707,7 @@ export function PlayApp() {
 		return isWords ? 'words' : 'movies';
 	}, [room]);
 
-	const tipsTopic =
-		room?.mode === 'blind' ? (inferredBlindTopic ?? blindParent) : 'movies';
+	const tipsTopic = room?.mode === 'blind' ? (inferredBlindTopic ?? blindParent) : 'movies';
 	const tipsCategoryLabel =
 		tipsTopic === 'words'
 			? WORD_PAIRS_SUBCATEGORIES.find((s) => s.id === blindWordsSubcategory)?.label ?? null
@@ -746,10 +773,68 @@ export function PlayApp() {
 		});
 	}
 
+	const quizAxes: QuizAxisId[] = useMemo(
+		() => [
+			'modernClassic',
+			'minimalMaximal',
+			'warmCool',
+			'naturalIndustrial',
+			'boldSafe',
+			'budgetPremium',
+			'planSpontaneous',
+			'socialCozy',
+		],
+		[]
+	);
+
+	const currentQuizQuestion = useMemo(() => {
+		if (!room || room.mode !== 'quiz' || !room.quiz) return null;
+		const qid = room.quiz.questionIds[room.quiz.currentIndex];
+		if (!qid) return null;
+		return getQuestionById(qid);
+	}, [room]);
+
+	const myQuizAnswer = useMemo(() => {
+		if (!room || room.mode !== 'quiz' || !room.quiz) return null;
+		const qid = room.quiz.questionIds[room.quiz.currentIndex];
+		if (!qid) return null;
+		return room.quiz.answersByClientId?.[clientId]?.[qid] ?? null;
+	}, [room, clientId]);
+
+	async function submitQuiz(optionId: string) {
+		if (!room || room.mode !== 'quiz' || !room.quiz) return;
+		const qid = room.quiz.questionIds[room.quiz.currentIndex];
+		if (!qid) return;
+		await postJson<{ room: RoomView }>('/api/rooms/quiz/answer', {
+			roomId: room.roomId,
+			clientId,
+			questionId: qid,
+			optionId,
+		});
+	}
+
+	async function generateQuizAiSummary(fresh = false) {
+		if (!room || room.mode !== 'quiz' || !room.quiz) return;
+		setQuizAiError(null);
+		setQuizAiLoading(true);
+		try {
+			const res = await postJson<{ room: RoomView; cached?: boolean }>('/api/rooms/quiz/ai-summary', {
+				roomId: room.roomId,
+				fresh,
+			});
+			setRoom(res.room);
+		} catch (e) {
+			setQuizAiError(e instanceof Error ? e.message : 'Nieznany błąd.');
+		} finally {
+			setQuizAiLoading(false);
+		}
+	}
+
 	return (
 		<div className="relative min-h-screen font-sans text-zinc-50">
 			<AnimatedBackground text="❤️ MADE WITH LOVE ❤️" />
 			<div className="relative z-10 min-h-screen">
+			{mode !== 'quiz' && room?.mode !== 'quiz' ? (
 			<AiTipsFab
 				context={{
 					topic: tipsTopic,
@@ -772,6 +857,7 @@ export function PlayApp() {
 					rightDescription: room?.mode === 'blind' ? (currentRound?.right.description ?? null) : null,
 				}}
 			/>
+			) : null}
 			<button
 				type="button"
 				onClick={() => void toggleFullscreen()}
@@ -785,7 +871,9 @@ export function PlayApp() {
 			<main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-6">
 				<header className="flex items-start justify-between gap-3">
 					<div>
-						<h1 className="text-xl font-semibold tracking-tight text-white/95 font-sans">Decyzjomat dla par 💕</h1>
+						<h1 className={`${styles.brandTitle} text-3xl tracking-tight text-white/95 mb-3.5`}>
+							Decyzjomat dla par 💕
+						</h1>
 						<p className="mt-1 text-xs text-white/60">Tryb Tinder + porównanie wyborów na 2 urządzeniach</p>
 					</div>
 					<div className="text-right">
@@ -817,6 +905,20 @@ export function PlayApp() {
 							}`}
 						>
 							Randka w ciemno
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setMode('quiz');
+								setCategoryOpen(false);
+							}}
+							className={`h-10 flex-1 rounded-full text-sm font-semibold ${
+								mode === 'quiz'
+									? 'border border-white/10 bg-white/15 text-white'
+									: 'border border-white/10 bg-white/5 text-white/80'
+							}`}
+						>
+							Gusty
 						</button>
 					</div>
 
@@ -858,10 +960,10 @@ export function PlayApp() {
 
 					<div className="mt-3">
 						<label className="text-xs font-semibold text-white/60" htmlFor="room-category">
-							{mode === 'blind' && blindParent === 'words'
-								? 'Podkategoria'
-								: mode === 'blind'
-									? 'Gatunek'
+							{mode === 'quiz'
+								? 'Pakiet'
+								: mode === 'blind' && blindParent === 'words'
+									? 'Podkategoria'
 									: 'Gatunek'}
 						</label>
 						<div ref={categoryRef} className="relative mt-1">
@@ -897,7 +999,47 @@ export function PlayApp() {
 									aria-label="Wybierz kategorię"
 									className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/60 p-1 text-white backdrop-blur-xl"
 								>
-									{mode === 'blind' && blindParent === 'words'
+									{mode === 'quiz'
+										? (Object.keys(QUIZ_PACKS) as QuizPackId[]).map((pid) => {
+												const label = QUIZ_PACKS[pid].label;
+												const selected = pid === quizPackId;
+												if (selected) {
+													return (
+														<button
+															type="button"
+															role="option"
+															aria-selected="true"
+															key={pid}
+															onClick={() => {
+																setQuizPackId(pid);
+																setCategoryOpen(false);
+															}}
+															className="flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none"
+													>
+															<span className="truncate">{label}</span>
+															<Check className="h-4 w-4 text-white/80" />
+													</button>
+												);
+											}
+
+											return (
+													<button
+														type="button"
+														role="option"
+														aria-selected="false"
+														key={pid}
+														onClick={() => {
+															setQuizPackId(pid);
+															setCategoryOpen(false);
+														}}
+														className="flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+												>
+														<span className="truncate">{label}</span>
+														<span className="h-4 w-4" />
+													</button>
+											);
+										})
+										: mode === 'blind' && blindParent === 'words'
 										? WORD_PAIRS_SUBCATEGORIES.map((s) => {
 												const selected = s.id === blindWordsSubcategory;
 												if (selected) {
@@ -1070,6 +1212,110 @@ export function PlayApp() {
 									<p className="text-sm text-white/60">Brak kart.</p>
 								)}
 							</div>
+						) : room.mode === 'quiz' && room.quiz ? (
+							room.quiz.status === 'completed' ? (
+								<div>
+									<div className="mb-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+										<p className="text-sm font-semibold">Wynik</p>
+										{room.quiz.summary ? (
+											<p className="mt-1 text-xs text-white/70">Zgodność: {room.quiz.summary.agreementPercent}%</p>
+										) : (
+											<p className="mt-1 text-xs text-white/70">Quiz ukończony.</p>
+										)}
+									</div>
+
+									<div className="flex flex-col gap-2">
+										{quizAxes.map((axisId) => {
+											const me = room.quiz?.scoresByClientId?.[clientId]?.[axisId] ?? 0;
+											const partnerId = room.participantClientIds.find((id) => id !== clientId);
+											const partner = partnerId ? room.quiz?.scoresByClientId?.[partnerId]?.[axisId] ?? 0 : 0;
+											const diff = Math.abs(me - partner);
+											return (
+												<div key={axisId} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+													<p className="text-xs font-semibold text-white/80">{getAxisLabel(axisId)}</p>
+													<p className="mt-1 text-xs text-white/70">Ty: {me} • Partner: {partner} • Różnica: {diff}</p>
+												</div>
+											);
+										})}
+									</div>
+
+									<div className="mt-3 flex gap-2">
+										<button
+											type="button"
+											onClick={() =>
+												downloadJson(`gusty-${room.code}.json`, {
+													roomId: room.roomId,
+													code: room.code,
+													createdAt: room.createdAt,
+													mode: room.mode,
+													quiz: room.quiz,
+												})
+											}
+											className="h-10 flex-1 rounded-full border border-white/10 bg-white/15 text-sm font-semibold text-white"
+										>
+											Pobierz JSON
+										</button>
+									</div>
+
+									<div className="mt-3">
+										{room.quiz.aiSummary?.text ? (
+											<div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+												<p className="text-sm font-semibold">Porady AI</p>
+												<p className="mt-2 text-sm text-white/85 whitespace-pre-wrap">{room.quiz.aiSummary.text}</p>
+												<div className="mt-3 flex gap-2">
+													<button
+														type="button"
+														onClick={() => void generateQuizAiSummary(true)}
+														disabled={quizAiLoading}
+														className="h-10 flex-1 rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-white/90 disabled:opacity-50"
+													>
+														Odśwież porady
+													</button>
+												</div>
+											</div>
+										) : (
+											<div>
+												<button
+													type="button"
+													onClick={() => void generateQuizAiSummary(false)}
+													disabled={quizAiLoading}
+													className="h-10 w-full rounded-full border border-white/10 bg-white/15 text-sm font-semibold text-white disabled:opacity-50"
+												>
+													{quizAiLoading ? 'Generuję…' : 'Generuj porady AI'}
+												</button>
+												{quizAiError ? <p className="mt-2 text-xs text-red-400">{quizAiError}</p> : null}
+											</div>
+										)}
+									</div>
+								</div>
+							) : currentQuizQuestion ? (
+								<div>
+									<p className="text-xs font-semibold text-white/60">
+										Pytanie {room.quiz.currentIndex + 1}/{room.quiz.totalQuestions} — {QUIZ_PACKS[room.quiz.packId].label}
+									</p>
+									<p className="mt-2 text-sm font-semibold">{currentQuizQuestion.prompt}</p>
+
+									<div className="mt-3 flex flex-col gap-2">
+										{currentQuizQuestion.options.map((opt) => (
+											<button
+												key={opt.id}
+												type="button"
+												onClick={() => void submitQuiz(opt.id)}
+												disabled={!isReady || Boolean(myQuizAnswer)}
+												className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm font-semibold text-white/90 disabled:opacity-50"
+											>
+												{opt.label}
+											</button>
+										))}
+									</div>
+
+									{myQuizAnswer ? (
+										<p className="mt-3 text-xs font-semibold text-white/60">Czekam na odpowiedź partnera…</p>
+									) : null}
+								</div>
+							) : (
+								<p className="text-sm text-white/60">Brak pytania.</p>
+							)
 						) : currentRound ? (
 							<BlindRoundView
 								key={`${room?.roomId ?? 'room'}:${currentRound.index}:${currentRound.left.id}:${currentRound.right.id}`}

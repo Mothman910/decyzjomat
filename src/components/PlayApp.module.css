@@ -16,3 +16,7 @@
 .choicePop {
 	animation: choicePop 600ms ease-out both;
 }
+
+.brandTitle {
+	font-family: var(--font-emilys-candy);
+}

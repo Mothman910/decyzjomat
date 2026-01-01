@@ -5,7 +5,7 @@ import { getRandomMovieCardsFromTmdb, TMDB_GENRES } from '@/lib/tmdb';
 import { getWordPairsSubcategory, type WordPairsSubcategoryId } from '@/lib/wordPairs';
 import type { DecisionCard } from '@/types/decisionCard';
 import type { BlindRound } from '@/types/room';
-import type { RoomMode } from '@/types/room';
+import type { QuizPackId, RoomMode } from '@/types/room';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,6 +16,7 @@ type CreateRoomRequest = {
 	genreId?: number;
 	blindTopic?: 'movies' | 'words';
 	wordsSubcategory?: WordPairsSubcategoryId;
+	packId?: QuizPackId;
 	rounds?: number;
 	cardsLimit?: number;
 };
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
 	}
 
 	const mode = body.mode;
-	if (mode !== 'match' && mode !== 'blind') {
+	if (mode !== 'match' && mode !== 'blind' && mode !== 'quiz') {
 		return NextResponse.json({ error: 'Nieprawidłowy tryb.' }, { status: 400 });
 	}
 
@@ -39,6 +40,13 @@ export async function POST(request: Request) {
 	const clientId = typeof body.clientId === 'string' && body.clientId.trim() ? body.clientId.trim() : null;
 
 	try {
+		if (mode === 'quiz') {
+			const packId = (body.packId as QuizPackId | undefined) ?? 'mix';
+			const room = createRoom({ mode: 'quiz', packId });
+			const roomView = clientId ? joinRoom(room, clientId) : viewRoom(room);
+			return NextResponse.json({ room: roomView });
+		}
+
 		if (mode === 'match') {
 			const cardsLimit = typeof body.cardsLimit === 'number' ? body.cardsLimit : 20;
 			const cards = await getRandomMovieCardsFromTmdb({ genreId, limit: cardsLimit });
