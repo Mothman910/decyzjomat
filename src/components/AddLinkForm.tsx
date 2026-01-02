@@ -119,7 +119,7 @@ export function AddLinkForm() {
 					// eslint-disable-next-line no-alert
 					alert(`Gotowe do zapisu: ${preview.title ?? preview.url}`);
 				}}
-				className="mt-4 inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black"
+				className="mt-4 inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-sm font-medium text-white transition-[transform,background-color,color,opacity] duration-200 ease-out will-change-transform enabled:cursor-pointer disabled:cursor-not-allowed active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 supports-[hover:hover]:hover:-translate-y-0.5 supports-[hover:hover]:hover:opacity-95 disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:focus-visible:ring-white/30"
 			>
 				Zapisz do bazy
 			</button>

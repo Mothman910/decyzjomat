@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
         hostname: 'image.tmdb.org',
         pathname: '/t/p/**',
       },
+		{
+			protocol: 'https',
+			hostname: 'buycoffee.to',
+			pathname: '/_ipx/_/static/**',
+		},
     ],
   },
 };

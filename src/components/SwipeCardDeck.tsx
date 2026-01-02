@@ -6,6 +6,8 @@ import type { DecisionCard } from '@/types/decisionCard';
 export function SwipeCardDeck(props: { cards: DecisionCard[] }) {
 	const { cards } = props;
 	const [index, setIndex] = useState(0);
+	const motionButton =
+		'transition-[transform,background-color,color,opacity] duration-200 ease-out will-change-transform enabled:cursor-pointer disabled:cursor-not-allowed active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 supports-[hover:hover]:hover:-translate-y-0.5';
 
 	const current = cards[index] ?? null;
 	const remaining = Math.max(0, cards.length - index - 1);
@@ -60,14 +62,14 @@ export function SwipeCardDeck(props: { cards: DecisionCard[] }) {
 			<div className="mt-4 flex gap-3">
 				<button
 					type="button"
-					className="h-11 flex-1 rounded-full border border-black/[.08] px-5 text-sm font-medium text-black hover:bg-black/[.04] dark:border-white/[.145] dark:text-zinc-50 dark:hover:bg-white/[.06]"
+					className={`h-11 flex-1 rounded-full border border-black/[.08] px-5 text-sm font-medium text-black dark:border-white/[.145] dark:text-zinc-50 dark:focus-visible:ring-white/30 ${motionButton} supports-[hover:hover]:hover:bg-black/[.04] dark:supports-[hover:hover]:hover:bg-white/[.06]`}
 					onClick={() => setIndex((i) => Math.min(cards.length - 1, i + 1))}
 				>
 					Pomiń
 				</button>
 				<button
 					type="button"
-					className="h-11 flex-1 rounded-full bg-black px-5 text-sm font-medium text-white dark:bg-zinc-50 dark:text-black"
+					className={`h-11 flex-1 rounded-full bg-black px-5 text-sm font-medium text-white dark:bg-zinc-50 dark:text-black dark:focus-visible:ring-white/30 ${motionButton} supports-[hover:hover]:hover:opacity-90`}
 					onClick={() => setIndex((i) => Math.min(cards.length - 1, i + 1))}
 				>
 					Wybieram

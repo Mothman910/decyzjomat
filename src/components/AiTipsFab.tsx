@@ -32,6 +32,9 @@ export function AiTipsFab(props: {
 	const lastKeyRef = useRef<string>('');
 	const [refreshSeq, setRefreshSeq] = useState(0);
 
+	const buttonMotion =
+		'transition-[transform,background-color,border-color,color,opacity] duration-200 ease-out will-change-transform enabled:cursor-pointer disabled:cursor-not-allowed active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 supports-[hover:hover]:hover:-translate-y-0.5';
+
 	const contextKey = useMemo(() => JSON.stringify(context), [context]);
 
 	useEffect(() => {
@@ -84,7 +87,7 @@ export function AiTipsFab(props: {
 							type="button"
 							aria-label="Zamknij porady"
 							onClick={() => setOpen(false)}
-							className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white hover:bg-black/40"
+							className={`${buttonMotion} inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white supports-[hover:hover]:hover:bg-black/40`}
 						>
 							<X className="h-5 w-5" />
 						</button>
@@ -95,7 +98,7 @@ export function AiTipsFab(props: {
 							type="button"
 							disabled={loading}
 							onClick={() => setRefreshSeq((n) => n + 1)}
-							className="inline-flex h-9 items-center gap-2 rounded-full bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/15 disabled:opacity-60"
+							className={`${buttonMotion} inline-flex h-9 items-center gap-2 rounded-full bg-white/10 px-3 text-xs font-semibold text-white supports-[hover:hover]:hover:bg-white/15 disabled:opacity-60`}
 							title="Wygeneruj świeżą poradę"
 						>
 							{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lightbulb className="h-4 w-4" />}
@@ -123,7 +126,7 @@ export function AiTipsFab(props: {
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="fixed bottom-4 left-4 z-50 inline-flex h-12 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl"
+				className={`${buttonMotion} fixed bottom-4 left-4 z-50 inline-flex h-12 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl supports-[hover:hover]:hover:bg-white/15`}
 				aria-label="Porady"
 				title="Porady"
 			>

@@ -1,4 +1,6 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Decyzjomat
+
+Decyzjomat to szybka, lekka gra w decyzje: karty do wyboru, wspólne głosowanie oraz tryby w stylu „randki w ciemno” i quiz „Gusta”.
 
 ## Getting Started
 
@@ -18,7 +20,28 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment variables
+
+Utwórz `.env.local` (na dev) lub ustaw zmienne w Vercel (Production/Preview):
+
+- `NEXT_PUBLIC_SITE_URL` – pełny URL strony, np. `https://twoj-projekt.vercel.app`
+- `GEMINI_API_KEY` – klucz Gemini (quiz „Gusta”)
+- `GEMINI_MODEL` – opcjonalnie, domyślnie `gemini-flash-latest`
+- `GROQ_API_KEY` – klucz Groq (Porady)
+- `GROQ_MODEL` – opcjonalnie, domyślnie `llama-3.3-70b-versatile`
+- `TMDB_API_KEY` – opcjonalnie (jeśli korzystasz z kart z TMDB)
+
+## Deploy on Vercel
+
+1. Importuj repo do Vercel.
+2. Framework preset: **Next.js**.
+3. Ustaw powyższe env vars (zwłaszcza `NEXT_PUBLIC_SITE_URL`).
+4. Deploy.
+
+## Facebook (Open Graph)
+
+Meta tagi OG/Twitter, obrazy oraz ikony są generowane przez Next App Router.
+Po wdrożeniu użyj narzędzia Facebook Sharing Debugger i wklej URL strony, żeby wymusić odświeżenie podglądu.
 
 ## Learn More
 

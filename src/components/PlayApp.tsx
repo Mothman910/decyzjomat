@@ -11,6 +11,7 @@ import type { DecisionCard } from '@/types/decisionCard';
 import type { QuizAxisId, QuizPackId, RoomMode, RoomView } from '@/types/room';
 import { AiTipsFab } from '@/components/AiTipsFab';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
+import { BuyCoffeeToButton } from '@/components/BuyCoffeeToButton';
 import { QUIZ_PACKS, getAxisLabel, getQuestionById } from '@/lib/quizBank';
 import { WORD_PAIRS_SUBCATEGORIES, type WordPairsSubcategoryId } from '@/lib/wordPairs';
 import styles from './PlayApp.module.css';
@@ -226,6 +227,11 @@ function pctToLeftClass(pct: number): string {
 	const idx = clamp(Math.round(pct), 0, 100);
 	return LEFT_PCT_CLASSES[idx] ?? LEFT_PCT_CLASSES[0];
 }
+
+const BUTTON_MOTION =
+	'transition-[transform,background-color,border-color,color,opacity] duration-200 ease-out will-change-transform enabled:cursor-pointer disabled:cursor-not-allowed active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 supports-[hover:hover]:hover:-translate-y-0.5';
+const BUTTON_MOTION_SOFT = `${BUTTON_MOTION} supports-[hover:hover]:hover:bg-white/15`;
+const BUTTON_MOTION_DARK = `${BUTTON_MOTION} supports-[hover:hover]:hover:bg-black/80`;
 
 function hashStringToUint32(input: string): number {
 	// FNV-1a 32-bit
@@ -627,7 +633,7 @@ function MatchHeartButtons(props: { onNope: () => void; onLike: () => void; disa
 				disabled={disabled}
 				onClick={onNope}
 				aria-label="Nie"
-				className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50"
+				className={`${BUTTON_MOTION_DARK} pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50`}
 			>
 				<X className="h-7 w-7" />
 			</button>
@@ -636,7 +642,7 @@ function MatchHeartButtons(props: { onNope: () => void; onLike: () => void; disa
 				disabled={disabled}
 				onClick={onLike}
 				aria-label="Tak"
-				className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50"
+				className={`${BUTTON_MOTION_DARK} pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50`}
 			>
 				<Heart className="h-7 w-7" />
 			</button>
@@ -662,7 +668,7 @@ function ExpandableDescription(props: {
 					e.stopPropagation();
 					onToggle();
 				}}
-				className="mt-1 text-xs font-semibold text-white/90 underline underline-offset-2"
+				className={`${BUTTON_MOTION} mt-1 text-xs font-semibold text-white/90 underline underline-offset-2 supports-[hover:hover]:hover:text-white`}
 			>
 				{expanded ? 'Mniej' : 'Więcej'}
 			</button>
@@ -827,7 +833,7 @@ function BlindRoundView(props: {
 											e.stopPropagation();
 											setShowLeftDescription(false);
 										}}
-										className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white hover:bg-black/40"
+										className={`${BUTTON_MOTION_DARK} inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white`}
 									>
 										<X className="h-5 w-5" />
 									</button>
@@ -886,7 +892,7 @@ function BlindRoundView(props: {
 											setShowLeftDescription((v) => !v);
 										}}
 										title={!left.description ? 'Brak opisu.' : undefined}
-										className="text-left text-xs font-semibold text-white/90 underline underline-offset-2 disabled:opacity-60"
+										className={`${BUTTON_MOTION} text-left text-xs font-semibold text-white/90 underline underline-offset-2 disabled:opacity-60 supports-[hover:hover]:hover:text-white`}
 									>
 										Zobacz opis
 									</button>
@@ -904,7 +910,7 @@ function BlindRoundView(props: {
 								onPickLeft();
 							}}
 								aria-label="Wybierz lewą kartę"
-								className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50 sm:h-14 sm:w-14"
+							className={`${BUTTON_MOTION_DARK} pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50 sm:h-14 sm:w-14`}
 							>
 								<Heart className="h-7 w-7" />
 							</button>
@@ -916,7 +922,7 @@ function BlindRoundView(props: {
 								disabled={disabled}
 								onClick={onPickLeft}
 								aria-label="Wybierz lewą kartę"
-								className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50"
+								className={`${BUTTON_MOTION_DARK} pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50`}
 							>
 								<Heart className="h-7 w-7" />
 							</button>
@@ -955,7 +961,7 @@ function BlindRoundView(props: {
 											e.stopPropagation();
 											setShowRightDescription(false);
 										}}
-										className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white hover:bg-black/40"
+										className={`${BUTTON_MOTION_DARK} inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white`}
 									>
 										<X className="h-5 w-5" />
 									</button>
@@ -1014,7 +1020,7 @@ function BlindRoundView(props: {
 											setShowRightDescription((v) => !v);
 										}}
 										title={!right.description ? 'Brak opisu.' : undefined}
-										className="text-left text-xs font-semibold text-white/90 underline underline-offset-2 disabled:opacity-60"
+										className={`${BUTTON_MOTION} text-left text-xs font-semibold text-white/90 underline underline-offset-2 disabled:opacity-60 supports-[hover:hover]:hover:text-white`}
 									>
 										Zobacz opis
 									</button>
@@ -1032,7 +1038,7 @@ function BlindRoundView(props: {
 								onPickRight();
 							}}
 								aria-label="Wybierz prawą kartę"
-								className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50 sm:h-14 sm:w-14"
+							className={`${BUTTON_MOTION_DARK} pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50 sm:h-14 sm:w-14`}
 							>
 								<Heart className="h-7 w-7" />
 							</button>
@@ -1044,7 +1050,7 @@ function BlindRoundView(props: {
 								disabled={disabled}
 								onClick={onPickRight}
 								aria-label="Wybierz prawą kartę"
-								className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50"
+								className={`${BUTTON_MOTION_DARK} pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur disabled:opacity-50`}
 							>
 								<Heart className="h-7 w-7" />
 							</button>
@@ -1108,6 +1114,10 @@ function BlindSummaryView(props: {
 						</div>
 					);
 				})}
+			</div>
+
+			<div className="mt-4 flex justify-end">
+				<BuyCoffeeToButton />
 			</div>
 		</div>
 	);
@@ -1401,6 +1411,26 @@ export function PlayApp() {
 		<div className="relative min-h-screen font-sans text-zinc-50">
 			<AnimatedBackground text="❤️ MADE WITH LOVE ❤️" />
 			<div className="relative z-10 min-h-screen">
+			<a
+				href="https://buycoffee.to/mothman910"
+				target="_blank"
+				rel="noreferrer noopener"
+				aria-label="Postaw kawę na buycoffee.to"
+				title="Postaw kawę"
+				className={`${BUTTON_MOTION} fixed bottom-20 right-4 z-60 inline-flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 p-px shadow-[0_0_12px_2px] shadow-orange-400/50 supports-[hover:hover]:hover:shadow-orange-400/70`}
+			>
+				<span className="inline-flex h-full items-center gap-2 rounded-full bg-gradient-to-r from-amber-500/10 via-orange-500/20 to-rose-500/10 px-4 text-sm font-semibold text-white backdrop-blur-sm">
+					<Image
+						src="/images/logo-sygnet.png"
+						alt=""
+						width={244}
+						height={158}
+						className="h-4 w-auto object-contain"
+						priority={false}
+					/>
+					Postaw kawę
+				</span>
+			</a>
 			<AiTipsFab
 				context={{
 					topic: tipsTopic,
@@ -1426,7 +1456,7 @@ export function PlayApp() {
 			<button
 				type="button"
 				onClick={() => void toggleFullscreen()}
-				className="fixed bottom-4 right-4 z-50 inline-flex h-12 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl"
+				className={`${BUTTON_MOTION_SOFT} fixed bottom-4 right-4 z-50 inline-flex h-12 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl`}
 				aria-label={isFullscreen ? 'Wyjdź z pełnego ekranu' : 'Pełny ekran'}
 				title={isFullscreen ? 'Wyjdź z pełnego ekranu' : 'Pełny ekran'}
 			>
@@ -1456,7 +1486,7 @@ export function PlayApp() {
 								mode === 'match'
 									? 'border border-white/10 bg-white/15 text-white'
 									: 'border border-white/10 bg-white/5 text-white/80'
-							}`}
+							} ${BUTTON_MOTION}`}
 						>
 							Pierwszy match
 						</button>
@@ -1467,7 +1497,7 @@ export function PlayApp() {
 								mode === 'blind'
 									? 'border border-white/10 bg-white/15 text-white'
 									: 'border border-white/10 bg-white/5 text-white/80'
-							}`}
+							} ${BUTTON_MOTION}`}
 						>
 							Randka w ciemno
 						</button>
@@ -1481,7 +1511,7 @@ export function PlayApp() {
 								mode === 'quiz'
 									? 'border border-white/10 bg-white/15 text-white'
 									: 'border border-white/10 bg-white/5 text-white/80'
-							}`}
+							} ${BUTTON_MOTION}`}
 						>
 							Gusta
 						</button>
@@ -1501,7 +1531,7 @@ export function PlayApp() {
 										blindParent === 'movies'
 											? 'border border-white/10 bg-white/15 text-white'
 											: 'border border-white/10 bg-white/5 text-white/80'
-									}`}
+									} ${BUTTON_MOTION}`}
 								>
 									Filmy
 								</button>
@@ -1515,7 +1545,7 @@ export function PlayApp() {
 										blindParent === 'words'
 											? 'border border-white/10 bg-white/15 text-white'
 											: 'border border-white/10 bg-white/5 text-white/80'
-									}`}
+									} ${BUTTON_MOTION}`}
 								>
 									Hasła
 								</button>
@@ -1539,7 +1569,7 @@ export function PlayApp() {
 									onClick={() => setCategoryOpen(false)}
 									aria-haspopup="listbox"
 									aria-expanded="true"
-									className="flex h-10 w-full items-center justify-between rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl"
+										className={`${BUTTON_MOTION_SOFT} flex h-10 w-full items-center justify-between rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl`}
 								>
 									<span className="truncate">{selectedCategoryLabel}</span>
 									<ChevronDown className="h-4 w-4 text-white/80" />
@@ -1551,7 +1581,7 @@ export function PlayApp() {
 									onClick={() => setCategoryOpen(true)}
 									aria-haspopup="listbox"
 									aria-expanded="false"
-									className="flex h-10 w-full items-center justify-between rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl"
+										className={`${BUTTON_MOTION_SOFT} flex h-10 w-full items-center justify-between rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl`}
 								>
 									<span className="truncate">{selectedCategoryLabel}</span>
 									<ChevronDown className="h-4 w-4 text-white/80" />
@@ -1579,7 +1609,7 @@ export function PlayApp() {
 																	setQuizPackId(packId);
 																	setCategoryOpen(false);
 																}}
-																className="flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none"
+																className={`${BUTTON_MOTION} flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none`}
 														>
 															<span className="truncate">{label}</span>
 															<Check className="h-4 w-4 text-white/80" />
@@ -1597,7 +1627,7 @@ export function PlayApp() {
 																setQuizPackId(packId);
 																setCategoryOpen(false);
 															}}
-															className="flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+															className={`${BUTTON_MOTION} flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none`}
 													>
 														<span className="truncate">{label}</span>
 														<span className="h-4 w-4" />
@@ -1618,7 +1648,7 @@ export function PlayApp() {
 															setBlindWordsSubcategory(s.id);
 															setCategoryOpen(false);
 														}}
-														className="flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none"
+														className={`${BUTTON_MOTION} flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none`}
 													>
 														<span className="truncate">{s.label}</span>
 														<Check className="h-4 w-4 text-white/80" />
@@ -1636,7 +1666,7 @@ export function PlayApp() {
 															setBlindWordsSubcategory(s.id);
 															setCategoryOpen(false);
 														}}
-														className="flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+														className={`${BUTTON_MOTION} flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none`}
 													>
 														<span className="truncate">{s.label}</span>
 														<span className="h-4 w-4" />
@@ -1656,7 +1686,7 @@ export function PlayApp() {
 																setSelectedGenreId(c.genreId);
 																setCategoryOpen(false);
 															}}
-															className="flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none"
+															className={`${BUTTON_MOTION} flex w-full items-center justify-between rounded-r-xl rounded-l-none bg-white/10 px-3 py-2 text-left text-sm font-semibold hover:bg-white/15 focus:bg-white/15 focus:outline-none`}
 													>
 														<span className="truncate">{c.label}</span>
 														<Check className="h-4 w-4 text-white/80" />
@@ -1674,7 +1704,7 @@ export function PlayApp() {
 																setSelectedGenreId(c.genreId);
 																setCategoryOpen(false);
 														}}
-														className="flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+														className={`${BUTTON_MOTION} flex w-full items-center justify-between rounded-r-xl rounded-l-none px-3 py-2 text-left text-sm font-semibold hover:bg-white/10 focus:bg-white/10 focus:outline-none`}
 													>
 														<span className="truncate">{c.label}</span>
 														<span className="h-4 w-4" />
@@ -1691,7 +1721,7 @@ export function PlayApp() {
 							type="button"
 							onClick={createNewRoom}
 							disabled={!clientId || loading}
-							className="h-10 flex-1 rounded-full border border-white/10 bg-white/15 text-sm font-semibold text-white disabled:opacity-50"
+							className={`${BUTTON_MOTION_SOFT} h-10 flex-1 rounded-full border border-white/10 bg-white/15 text-sm font-semibold text-white disabled:opacity-50`}
 						>
 							Utwórz pokój
 						</button>
@@ -1705,7 +1735,7 @@ export function PlayApp() {
 							type="button"
 							onClick={joinExistingRoom}
 							disabled={!clientId || loading || code.trim().length < 4}
-							className="h-10 w-20 rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-white/90 disabled:opacity-50"
+							className={`${BUTTON_MOTION} h-10 w-20 rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-white/90 disabled:opacity-50 supports-[hover:hover]:hover:bg-white/10`}
 						>
 							Dołącz
 						</button>
@@ -1720,7 +1750,7 @@ export function PlayApp() {
 							<button
 								type="button"
 								onClick={handleCopyRoomCode}
-								className="inline-flex h-8 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/80"
+								className={`${BUTTON_MOTION} inline-flex h-8 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/80 supports-[hover:hover]:hover:bg-white/10`}
 								aria-label="Kopiuj kod pokoju"
 							>
 								{copiedCode ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -1752,6 +1782,9 @@ export function PlayApp() {
 										<div className="rounded-3xl border border-white/10 bg-zinc-950/60 px-6 py-5 text-center text-white backdrop-blur-xl">
 											<p className="text-sm font-semibold">ZGODNOŚĆ</p>
 											<p className="mt-1 text-lg font-semibold">{matchCard.title}</p>
+											<div className="mt-4 flex justify-center">
+												<BuyCoffeeToButton />
+											</div>
 										</div>
 									</div>
 								) : null}
@@ -1901,6 +1934,10 @@ export function PlayApp() {
 											) : (
 												<p className="mt-2 text-xs text-white/60">Kliknij „Generuj”, żeby dostać krótkie, konkretne zasady kompromisu.</p>
 											)}
+										</div>
+
+										<div className="flex justify-end">
+											<BuyCoffeeToButton />
 										</div>
 									</div>
 								) : (
