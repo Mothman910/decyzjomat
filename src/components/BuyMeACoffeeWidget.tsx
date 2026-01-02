@@ -17,7 +17,6 @@ export function BuyMeACoffeeWidget() {
 
 		// Styl musi być obecny niezależnie od tego, czy skrypt już istnieje.
 		const css = `
-/* Keep BuyMeACoffee widget above the fullscreen button */
 #bmc-wbtn,
 .bmc-wbtn,
 #bmc-wbtn-container,

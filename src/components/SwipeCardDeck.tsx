@@ -28,7 +28,7 @@ export function SwipeCardDeck(props: { cards: DecisionCard[] }) {
 
 	if (!current) {
 		return (
-			<section className="w-full rounded-2xl border border-black/[.08] bg-white p-6 dark:border-white/[.145] dark:bg-black">
+			<section className="w-full rounded-2xl border border-black/8 bg-white p-6 dark:border-white/[.145] dark:bg-black">
 				<h2 className="text-lg font-semibold text-black dark:text-zinc-50">Talia</h2>
 				<p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Brak kart do wyświetlenia.</p>
 			</section>
@@ -36,7 +36,7 @@ export function SwipeCardDeck(props: { cards: DecisionCard[] }) {
 	}
 
 	return (
-		<section className="w-full rounded-2xl border border-black/[.08] bg-white p-6 dark:border-white/[.145] dark:bg-black">
+		<section className="w-full rounded-2xl border border-black/8 bg-white p-6 dark:border-white/[.145] dark:bg-black">
 			<div className="flex items-start justify-between gap-4">
 				<div className="min-w-0">
 					<h2 className="truncate text-lg font-semibold text-black dark:text-zinc-50">{current.title}</h2>
@@ -45,8 +45,8 @@ export function SwipeCardDeck(props: { cards: DecisionCard[] }) {
 				<p className="text-xs text-zinc-500">Pozostało: {remaining}</p>
 			</div>
 
-			<div className="mt-4 overflow-hidden rounded-2xl border border-black/[.08] dark:border-white/[.145]">
-				<div className="aspect-[2/3] w-full bg-zinc-100 dark:bg-zinc-900">
+			<div className="mt-4 overflow-hidden rounded-2xl border border-black/8 dark:border-white/[.145]">
+				<div className="aspect-2/3 w-full bg-zinc-100 dark:bg-zinc-900">
 					<img
 						src={current.imageUrl || '/globe.svg'}
 						alt="Okładka"
@@ -62,7 +62,7 @@ export function SwipeCardDeck(props: { cards: DecisionCard[] }) {
 			<div className="mt-4 flex gap-3">
 				<button
 					type="button"
-					className={`h-11 flex-1 rounded-full border border-black/[.08] px-5 text-sm font-medium text-black dark:border-white/[.145] dark:text-zinc-50 dark:focus-visible:ring-white/30 ${motionButton} supports-[hover:hover]:hover:bg-black/[.04] dark:supports-[hover:hover]:hover:bg-white/[.06]`}
+					className={`h-11 flex-1 rounded-full border border-black/8 px-5 text-sm font-medium text-black dark:border-white/[.145] dark:text-zinc-50 dark:focus-visible:ring-white/30 ${motionButton} supports-[hover:hover]:hover:bg-black/4 dark:supports-[hover:hover]:hover:bg-white/6`}
 					onClick={() => setIndex((i) => Math.min(cards.length - 1, i + 1))}
 				>
 					Pomiń

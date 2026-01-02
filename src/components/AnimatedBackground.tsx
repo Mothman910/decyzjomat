@@ -456,7 +456,6 @@ export function AnimatedBackground({
 
   return (
     <div className={styles.container}>
-      {/* SVG definitions for clip-path */}
       <svg className={styles.hiddenSvg}>
         <defs>
           <clipPath id="heartClip" clipPathUnits="objectBoundingBox">
@@ -465,13 +464,10 @@ export function AnimatedBackground({
         </defs>
       </svg>
 
-      {/* WebGL Canvas with heart animation - clipped to heart shape */}
       <div className={styles.clippedCanvas}>
         <canvas ref={canvasRef} className={styles.canvas} />
       </div>
       
-      {/* SVG with animated text along heart path border - rendered after hydration */}
-      {/* showTextAnimation: null = SSR/loading, true = show, false = hide */}
       {showTextAnimation === true && (
         <svg 
           className={styles.textPathSvg} 
@@ -480,11 +476,9 @@ export function AnimatedBackground({
           aria-hidden="true"
         >
           <defs>
-            {/* Shortened text path - trimmed at start/end to avoid overlap with heart animation */}
             <path id="textPath" d={TEXT_PATH} fill="none" />
           </defs>
           
-          {/* Animated text along heart path */}
           <text className={styles.pathText}>
             <textPath 
               ref={textPathRef}
@@ -497,7 +491,6 @@ export function AnimatedBackground({
         </svg>
       )}
       
-      {/* Dark overlay outside heart */}
       <div className={styles.darkOverlay} />
     </div>
   );

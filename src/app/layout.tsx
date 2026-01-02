@@ -3,6 +3,10 @@ import { Emilys_Candy, Geist, Geist_Mono, Nanum_Pen_Script } from "next/font/goo
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -26,13 +30,13 @@ const emilysCandy = Emilys_Candy({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "Decyzjomat",
+    default: "Decyzjomat - apka do inspirowania par 💘",
     template: "%s | Decyzjomat",
   },
   description:
-    "Decyzjomat to szybka, lekka gra w decyzje: karty, głosowanie i tryby w stylu randki w ciemno oraz quiz „Gusta”.",
+    "Apka miała być do wspólnego wybierania filmów lecz dodałem to i owo. Zachęcam do skorzystania w leniwe wieczory Jest też tryb do porównywania zgodności gustów i krótki test, który analizuje wasze wybory. Przetestujcie z drugą połówką — feedback mile widziany. :)" ,
   applicationName: "Decyzjomat",
   alternates: {
     canonical: "/",
@@ -40,11 +44,11 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "pl_PL",
-    url: "/",
+    url: siteUrl,
     siteName: "Decyzjomat",
-    title: "Decyzjomat",
+    title: "Decyzjomat - apka do inspirowania par 💘",
     description:
-      "Szybka, lekka gra w decyzje: karty, głosowanie i quiz „Gusta”. Idealne na wieczór ze znajomymi.",
+      "Zrobiłem to narzędzie, żeby nie kłócić się o wybór filmu. Jest też tryb do porównywania zgodności gustów i krótki test, który analizuje wasze wybory. Przetestujcie z drugą połówką — feedback mile widziany. :)" ,
     images: [
       {
         url: "/opengraph-image",
@@ -56,9 +60,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Decyzjomat",
+    title: "Decyzjomat - apka do inspirowania par 💘",
     description:
-      "Szybka, lekka gra w decyzje: karty, głosowanie i quiz „Gusta”.",
+      "Zrobiłem to narzędzie, żeby nie kłócić się o wybór filmu. Jest też tryb do porównywania zgodności gustów i krótki test analizujący wasze wybory. Feedback mile widziany. :)" ,
     images: ["/twitter-image"],
   },
   icons: {

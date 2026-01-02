@@ -15,10 +15,10 @@ export function BuyCoffeeToButton(props: BuyCoffeeToButtonProps) {
 			rel="noreferrer noopener"
 			aria-label="Postaw kawę na buycoffee.to"
 			title="Postaw kawę"
-			className={`inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 p-px shadow-[0_0_12px_2px] shadow-orange-400/50 transition-shadow hover:shadow-orange-400/70 ${className ?? ''}`}
+			className={`inline-flex items-center justify-center rounded-full bg-linear-to-r from-amber-400 via-orange-500 to-rose-500 p-px shadow-[0_0_12px_2px] shadow-orange-400/50 transition-shadow hover:shadow-orange-400/70 ${className ?? ''}`}
 		>
 			<span
-				className={`inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500/10 via-orange-500/20 to-rose-500/10 px-4 text-sm font-semibold text-white backdrop-blur-sm ${imgClassName ?? ''}`}
+				className={`inline-flex items-center gap-2 rounded-full bg-linear-to-r from-amber-500/10 via-orange-500/20 to-rose-500/10 px-4 text-sm font-semibold text-white backdrop-blur-sm ${imgClassName ?? ''}`}
 			>
 				<Image
 					src="/images/logo-sygnet.png"

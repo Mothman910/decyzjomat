@@ -6,6 +6,14 @@ const allowedDevOrigins = process.env.ALLOWED_DEV_ORIGINS
 
 const nextConfig: NextConfig = {
   allowedDevOrigins,
+  compiler: {
+    removeConsole:
+      process.env.NODE_ENV === 'production'
+        ? {
+            exclude: ['error'],
+          }
+        : false,
+  },
   images: {
     remotePatterns: [
       {
