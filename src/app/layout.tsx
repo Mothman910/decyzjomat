@@ -3,9 +3,13 @@ import { Emilys_Candy, Geist, Geist_Mono, Nanum_Pen_Script } from "next/font/goo
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
+const PRODUCTION_SITE_URL = "https://decyzjomat.vercel.app";
+
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  (process.env.VERCEL_ENV === 'production'
+    ? PRODUCTION_SITE_URL
+    : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,14 +48,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "pl_PL",
-    url: siteUrl,
+    url: new URL('/', siteUrl).toString(),
     siteName: "Decyzjomat",
     title: "Decyzjomat - apka do inspirowania par 💘",
     description:
       "Zrobiłem to narzędzie, żeby nie kłócić się o wybór filmu. Jest też tryb do porównywania zgodności gustów i krótki test, który analizuje wasze wybory. Przetestujcie z drugą połówką — feedback mile widziany. :)" ,
     images: [
       {
-        url: "/opengraph-image",
+        url: "/opengraph-image.png",
         width: 1200,
         height: 630,
         alt: "Decyzjomat",
