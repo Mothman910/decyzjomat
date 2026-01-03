@@ -624,6 +624,26 @@ function useRoomStream(roomId: string | null, onUpdate: (room: RoomView) => void
 	}, [roomId, onUpdate]);
 }
 
+function useMediaQuery(query: string): boolean {
+	const [matches, setMatches] = useState(false);
+	useEffect(() => {
+		const mql = window.matchMedia(query);
+		const onChange = () => setMatches(mql.matches);
+		onChange();
+		if (typeof mql.addEventListener === 'function') {
+			mql.addEventListener('change', onChange);
+			return () => mql.removeEventListener('change', onChange);
+		}
+		const legacy = mql as unknown as {
+			addListener?: (listener: () => void) => void;
+			removeListener?: (listener: () => void) => void;
+		};
+		legacy.addListener?.(onChange);
+		return () => legacy.removeListener?.(onChange);
+	}, [query]);
+	return matches;
+}
+
 function MatchHeartButtons(props: { onNope: () => void; onLike: () => void; disabled?: boolean }) {
 	const { onNope, onLike, disabled } = props;
 	return (
@@ -1133,6 +1153,7 @@ export function PlayApp() {
 	const [blindParent, setBlindParent] = useState<'movies' | 'words'>('movies');
 	const [blindWordsSubcategory, setBlindWordsSubcategory] = useState<WordPairsSubcategoryId>('adjectives');
 	const [quizPackId, setQuizPackId] = useState<QuizPackId>('mix');
+	const [quizSolo, setQuizSolo] = useState(false);
 	const [categoryOpen, setCategoryOpen] = useState(false);
 	const categoryRef = useRef<HTMLDivElement | null>(null);
 	const [code, setCode] = useState('');
@@ -1141,6 +1162,8 @@ export function PlayApp() {
 	const [loading, setLoading] = useState(false);
 	const [copiedCode, setCopiedCode] = useState(false);
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const isMobile = useMediaQuery('(max-width: 640px)');
+	const [descriptionModal, setDescriptionModal] = useState<{ title: string; text: string } | null>(null);
 
 	useEffect(() => {
 		if (!categoryOpen) return;
@@ -1175,7 +1198,8 @@ export function PlayApp() {
 	const handleRoomUpdate = useCallback((next: RoomView) => setRoom(next), []);
 	useRoomStream(room?.roomId ?? null, handleRoomUpdate);
 
-	const isReady = room?.participantsCount === 2;
+	const roomMaxParticipants = room?.maxParticipants ?? 2;
+	const isReady = room ? room.participantsCount === roomMaxParticipants : false;
 	const isMatched = room?.mode === 'match' && Boolean(room.matchedCardId);
 
 	const matchCard = useMemo(() => {
@@ -1217,6 +1241,7 @@ export function PlayApp() {
 
 	const waitingForPartner = useMemo(() => {
 		if (!room) return false;
+		if (roomMaxParticipants !== 2) return false;
 		if (room.participantsCount !== 2) return false;
 		if (room.mode === 'match') {
 			if (!currentMatchCard) return false;
@@ -1238,7 +1263,7 @@ export function PlayApp() {
 		if (!currentRound) return false;
 		const votes = room.blindVotesByRoundIndex?.[String(currentRound.index)] ?? 0;
 		return myBlindVotedRoundIndexes.has(currentRound.index) && votes < 2;
-	}, [room, currentMatchCard, currentRound, myMatchVotedIds, myBlindVotedRoundIndexes, clientId]);
+	}, [room, roomMaxParticipants, currentMatchCard, currentRound, myMatchVotedIds, myBlindVotedRoundIndexes, clientId]);
 
 	const [expandedCardIds, setExpandedCardIds] = useState<Set<string>>(() => new Set());
 	useEffect(() => {
@@ -1266,6 +1291,7 @@ export function PlayApp() {
 				clientId,
 				genreId,
 				packId: mode === 'quiz' ? quizPackId : undefined,
+				solo: mode === 'quiz' ? quizSolo : undefined,
 				blindTopic: mode === 'blind' ? blindParent : undefined,
 				wordsSubcategory: mode === 'blind' && blindParent === 'words' ? blindWordsSubcategory : undefined,
 			});
@@ -1302,12 +1328,46 @@ export function PlayApp() {
 		return isWords ? 'words' : 'movies';
 	}, [room]);
 
+	const quiz = room?.mode === 'quiz' ? room.quiz ?? null : null;
+	const quizIsFinished = Boolean(quiz && quiz.status === 'completed');
+	const quizQuestionId = quiz ? quiz.questionIds[quiz.currentIndex] ?? null : null;
+	const quizQuestion = quizQuestionId ? getQuestionById(quizQuestionId) : null;
+	const myQuizOptionId = quiz && quizQuestionId ? quiz.answersByClientId?.[clientId]?.[quizQuestionId] ?? null : null;
+	const quizProgressText = quiz ? `${Math.min(quiz.currentIndex + 1, quiz.totalQuestions)}/${quiz.totalQuestions}` : '';
+
 	const tipsTopic =
-		room?.mode === 'blind' ? (inferredBlindTopic ?? blindParent) : 'movies';
+		!room ? 'modes' : room.mode === 'quiz' ? 'quiz' : room.mode === 'blind' ? (inferredBlindTopic ?? blindParent) : 'movies';
 	const tipsCategoryLabel =
-		tipsTopic === 'words'
+		tipsTopic === 'modes'
+			? null
+			: room?.mode === 'quiz'
+			? (QUIZ_PACKS[quiz?.packId ?? quizPackId]?.label ?? null)
+			: tipsTopic === 'words'
 			? WORD_PAIRS_SUBCATEGORIES.find((s) => s.id === blindWordsSubcategory)?.label ?? null
 			: selectedMovieCategoryLabel;
+
+	const tipsViewLabel = useMemo(() => {
+		if (!room) return 'Start';
+		if (room.mode === 'match') {
+			if (isMatched && matchCard) return `Pierwszy match — zgodność: ${matchCard.title}`;
+			if (!isReady) return 'Pierwszy match — czekam na 2. osobę';
+			if (waitingForPartner) return 'Pierwszy match — czekam na wybór partnera';
+			return 'Pierwszy match — głosowanie';
+		}
+		if (room.mode === 'blind') {
+			if (blindIsFinished) return tipsTopic === 'words' ? 'Randka w ciemno — Hasła — podsumowanie' : 'Randka w ciemno — podsumowanie';
+			if (!isReady) return tipsTopic === 'words' ? 'Randka w ciemno — Hasła — czekam na 2. osobę' : 'Randka w ciemno — czekam na 2. osobę';
+			if (waitingForPartner) return tipsTopic === 'words' ? 'Randka w ciemno — Hasła — czekam na wybór partnera' : 'Randka w ciemno — czekam na wybór partnera';
+			return tipsTopic === 'words' ? 'Randka w ciemno — Hasła — wybór' : 'Randka w ciemno — wybór';
+		}
+		// quiz
+		const maxP = room.maxParticipants ?? 2;
+		const solo = maxP === 1;
+		if (quizIsFinished) return solo ? 'Gusta — Solo — wyniki' : 'Gusta — wyniki';
+		if (!isReady) return solo ? 'Gusta — Solo' : 'Gusta — czekam na 2. osobę';
+		if (waitingForPartner) return 'Gusta — czekam na odpowiedź partnera';
+		return solo ? 'Gusta — Solo — pytanie' : 'Gusta — pytanie';
+	}, [room, isMatched, matchCard, isReady, waitingForPartner, blindIsFinished, tipsTopic, quizIsFinished]);
 
 	async function handleCopyRoomCode() {
 		if (!room?.code) return;
@@ -1369,13 +1429,6 @@ export function PlayApp() {
 		});
 	}
 
-	const quiz = room?.mode === 'quiz' ? room.quiz ?? null : null;
-	const quizIsFinished = Boolean(quiz && quiz.status === 'completed');
-	const quizQuestionId = quiz ? quiz.questionIds[quiz.currentIndex] ?? null : null;
-	const quizQuestion = quizQuestionId ? getQuestionById(quizQuestionId) : null;
-	const myQuizOptionId = quiz && quizQuestionId ? quiz.answersByClientId?.[clientId]?.[quizQuestionId] ?? null : null;
-	const quizProgressText = quiz ? `${Math.min(quiz.currentIndex + 1, quiz.totalQuestions)}/${quiz.totalQuestions}` : '';
-
 	async function submitQuiz(optionId: string) {
 		if (!room || room.mode !== 'quiz') return;
 		if (!quizQuestionId) return;
@@ -1411,46 +1464,80 @@ export function PlayApp() {
 		<div className="relative min-h-screen font-sans text-zinc-50">
 			<AnimatedBackground text="❤️ MADE WITH LOVE ❤️" />
 			<div className="relative z-10 min-h-screen">
+				{descriptionModal ? (
+					<div
+						role="dialog"
+						aria-label="Opis"
+						className="fixed inset-0 z-70 flex items-end p-4"
+						onPointerDown={() => setDescriptionModal(null)}
+					>
+						<div
+							className="w-full rounded-3xl border border-white/10 bg-zinc-950/60 p-4 text-white backdrop-blur-xl"
+							onPointerDown={(e) => e.stopPropagation()}
+							data-testid="description-modal"
+						>
+							<div className="flex items-start justify-between gap-3">
+								<div className="min-w-0">
+									<p className="text-sm font-semibold text-white/95">{descriptionModal.title}</p>
+									<p className="mt-0.5 text-xs text-white/60">Opis</p>
+								</div>
+								<button
+									type="button"
+									onClick={() => setDescriptionModal(null)}
+									className={`${BUTTON_MOTION_DARK} inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white`}
+									aria-label="Zamknij opis"
+								>
+									<X className="h-5 w-5" />
+								</button>
+							</div>
+							<p className="mt-3 whitespace-pre-wrap text-sm text-white/90">{descriptionModal.text}</p>
+						</div>
+					</div>
+				) : null}
 			<a
 				href="https://buycoffee.to/mothman910"
 				target="_blank"
 				rel="noreferrer noopener"
 				aria-label="Postaw kawę na buycoffee.to"
 				title="Postaw kawę"
-				className={`${BUTTON_MOTION} fixed bottom-20 right-4 z-60 inline-flex h-12 items-center justify-center rounded-full bg-linear-to-r from-amber-400 via-orange-500 to-rose-500 p-px shadow-[0_0_12px_2px] shadow-orange-400/50 supports-[hover:hover]:hover:shadow-orange-400/70`}
+				className={`${BUTTON_MOTION_SOFT} fixed bottom-20 right-4 z-60 inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/10 px-4 text-sm font-semibold text-white/90 backdrop-blur-xl ring-1 ring-white shadow-[0_0_14px_2px] shadow-orange-400/70 supports-[hover:hover]:hover:ring-white supports-[hover:hover]:hover:shadow-[0_0_18px_3px] supports-[hover:hover]:hover:shadow-orange-400/90`}
+				style={{
+					backgroundImage:
+						'linear-gradient(90deg, rgba(131, 58, 180, 0.3) 0%, rgba(253, 29, 29, 0.3) 50%, rgba(252, 176, 69, 0.3) 100%)',
+				}}
 			>
-				<span className="inline-flex h-full items-center gap-2 rounded-full bg-linear-to-r from-amber-500/10 via-orange-500/20 to-rose-500/10 px-4 text-sm font-semibold text-white backdrop-blur-sm">
-					<Image
-						src="/images/logo-sygnet.png"
-						alt=""
-						width={244}
-						height={158}
-						className="h-4 w-auto object-contain"
-						priority={false}
-					/>
-					Postaw kawę
-				</span>
+				<Image
+					src="/images/logo-sygnet.png"
+					alt=""
+					width={244}
+					height={158}
+					className="h-4 w-auto object-contain"
+					priority={false}
+				/>
+				Postaw kawę
 			</a>
 			<AiTipsFab
 				context={{
 					topic: tipsTopic,
-					mode: room?.mode === 'quiz' ? 'none' : (room?.mode ?? 'none'),
+					mode: (room?.mode ?? 'none'),
 					categoryLabel: tipsCategoryLabel,
-					viewLabel:
-						room?.mode === 'blind'
-							? tipsTopic === 'words'
-								? 'Randka w ciemno — Hasła'
-								: 'Randka w ciemno'
-							: room?.mode === 'match'
-								? 'Pierwszy match'
-								: 'Start',
+					viewLabel: tipsViewLabel,
 					waitingForPartner,
 					isReady,
+					participantsCount: room?.participantsCount,
+					maxParticipants: room?.maxParticipants,
 					currentTitle: room?.mode === 'match' ? (currentMatchCard?.title ?? null) : null,
 					leftTitle: room?.mode === 'blind' ? (currentRound?.left.title ?? null) : null,
 					rightTitle: room?.mode === 'blind' ? (currentRound?.right.title ?? null) : null,
 					leftDescription: room?.mode === 'blind' ? (currentRound?.left.description ?? null) : null,
 					rightDescription: room?.mode === 'blind' ? (currentRound?.right.description ?? null) : null,
+					quizPackLabel: room?.mode === 'quiz' ? (QUIZ_PACKS[quiz?.packId ?? quizPackId]?.label ?? null) : null,
+					quizStatus: room?.mode === 'quiz' ? (quiz?.status ?? null) : null,
+					quizProgress: room?.mode === 'quiz' ? quizProgressText : null,
+					quizQuestionPrompt: room?.mode === 'quiz' ? (quizQuestion?.prompt ?? null) : null,
+					quizSolo: room?.mode === 'quiz' ? ((room?.maxParticipants ?? 2) === 1) : undefined,
+					quizAgreementPercent:
+						room?.mode === 'quiz' ? (quiz?.summary?.agreementPercent ?? null) : null,
 				}}
 			/>
 			<button
@@ -1463,13 +1550,13 @@ export function PlayApp() {
 				{isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
 				{isFullscreen ? 'Zwiń' : 'Pełny ekran'}
 			</button>
-			<main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-6">
+			<main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-6 pb-32">
 				<header className="flex items-start justify-between gap-3">
 					<div>
 						<h1 className={`${styles.brandTitle} text-2xl tracking-tight text-white/95 mb-3.5`}>
 							Decyzjomat dla par 💕
 						</h1>
-						<p className="mt-1 text-xs text-white/60">Tryb Tinder + porównanie wyborów na 2 urządzeniach</p>
+						<p className="mt-1 text-xs text-white/60">Wybór filmu na kartach + porównanie wyborów na 2 urządzeniach</p>
 					</div>
 					<div className="text-right">
 						<p className="text-[11px] text-white/50">ID: {clientId.slice(0, 6)}…</p>
@@ -1548,6 +1635,36 @@ export function PlayApp() {
 									} ${BUTTON_MOTION}`}
 								>
 									Hasła
+								</button>
+							</div>
+						</div>
+					) : null}
+
+					{mode === 'quiz' ? (
+						<div className="mt-3">
+							<p className="text-xs font-semibold text-white/60">Wariant</p>
+							<div className="mt-1 flex gap-2">
+								<button
+									type="button"
+									onClick={() => setQuizSolo(false)}
+									className={`h-10 flex-1 rounded-full text-sm font-semibold ${
+										!quizSolo
+											? 'border border-white/10 bg-white/15 text-white'
+											: 'border border-white/10 bg-white/5 text-white/80'
+									} ${BUTTON_MOTION}`}
+								>
+									Dla par
+								</button>
+								<button
+									type="button"
+									onClick={() => setQuizSolo(true)}
+									className={`h-10 flex-1 rounded-full text-sm font-semibold ${
+										quizSolo
+											? 'border border-white/10 bg-white/15 text-white'
+											: 'border border-white/10 bg-white/5 text-white/80'
+									} ${BUTTON_MOTION}`}
+								>
+									Solo
 								</button>
 							</div>
 						</div>
@@ -1764,7 +1881,8 @@ export function PlayApp() {
 					<section className="relative z-10 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
 						<div className="mb-3 flex items-center justify-between">
 							<p className="text-sm font-semibold">
-								{room.participantsCount}/2 połączone {isReady ? '— START' : '— czekam na drugą osobę'}
+								{room.participantsCount}/{roomMaxParticipants} połączone{' '}
+								{isReady ? '— START' : roomMaxParticipants === 1 ? '' : '— czekam na drugą osobę'}
 							</p>
 							{room.mode === 'blind' && room.blindStats ? (
 								<p className="text-xs text-white/60">Zgodność: {room.blindStats.percent}%</p>
@@ -1795,14 +1913,18 @@ export function PlayApp() {
 										badge={!isReady ? 'Czekam na 2. osobę' : waitingForPartner ? 'Czekam na wybór partnera' : null}
 										disabled={!isReady || isMatched || myMatchVotedIds.has(currentMatchCard.id)}
 										expanded={expandedCardIds.has(currentMatchCard.id)}
-										onToggleExpanded={() =>
+										onToggleExpanded={() => {
+											if (isMobile && currentMatchCard.description) {
+												setDescriptionModal({ title: currentMatchCard.title, text: currentMatchCard.description });
+												return;
+											}
 											setExpandedCardIds((prev) => {
 												const next = new Set(prev);
 												if (next.has(currentMatchCard.id)) next.delete(currentMatchCard.id);
 												else next.add(currentMatchCard.id);
 												return next;
-											})
-										}
+											});
+										}}
 										onNope={() => void submitMatch('nope')}
 										onLike={() => void submitMatch('like')}
 									/>
@@ -1827,23 +1949,26 @@ export function PlayApp() {
 									<div className="space-y-4">
 										<div className="rounded-2xl border border-white/10 bg-white/5 p-3">
 											<p className="text-sm font-semibold text-white/95">Wynik</p>
-											{quiz.summary?.agreementPercent != null ? (
+											{roomMaxParticipants !== 1 && quiz.summary?.agreementPercent != null ? (
 												<p className="mt-1 text-xs text-white/70">Zgodność: {quiz.summary.agreementPercent}%</p>
 											) : null}
 											<div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-white/60">
 												<span className="inline-flex items-center gap-2">
 													<span className="h-2 w-2 rounded-full bg-white/80" /> Ty
 												</span>
-												<span className="inline-flex items-center gap-2">
-													<span className="h-2 w-2 rounded-full bg-white/50" /> Partner
-												</span>
+												{roomMaxParticipants !== 1 ? (
+													<span className="inline-flex items-center gap-2">
+														<span className="h-2 w-2 rounded-full bg-white/50" /> Partner
+													</span>
+												) : null}
 												<span className="inline-flex items-center gap-2">
 													<span className="h-2 w-px bg-white/35" /> Środek osi
 												</span>
 											</div>
 											<p className="mt-2 text-xs text-white/60">
 												Jak liczymy punkty: każda odpowiedź dodaje/odejmuje punkty na wybranych osiach, a wynik osi to suma z całego testu.
-												Wynik ujemny ciągnie w lewo, dodatni w prawo; „Różnica” to odległość między Waszymi wynikami.
+												Wynik ujemny ciągnie w lewo, dodatni w prawo
+												{roomMaxParticipants !== 1 ? '; „Różnica” to odległość między Waszymi wynikami.' : '.'}
 												Skala min/0/max pod termometrem jest liczona z możliwych odpowiedzi w tym konkretnym zestawie pytań.
 											</p>
 										</div>
@@ -1852,20 +1977,25 @@ export function PlayApp() {
 											{QUIZ_AXES.map((axisId) => {
 												const partnerId = room.participantClientIds.find((id) => id !== clientId) ?? null;
 												const me = quiz.scoresByClientId?.[clientId]?.[axisId] ?? 0;
-												const partner = partnerId ? quiz.scoresByClientId?.[partnerId]?.[axisId] ?? 0 : 0;
+												const partner =
+													roomMaxParticipants !== 1 && partnerId
+														? quiz.scoresByClientId?.[partnerId]?.[axisId] ?? 0
+														: 0;
 												const diff = Math.abs(me - partner);
 												const range = computeAxisScoreRange(quiz.questionIds, axisId);
-															const denom = Math.max(1, range.max - range.min);
-															const zeroPct = clamp(((0 - range.min) / denom) * 100, 0, 100);
-															const mePct = clamp(((me - range.min) / denom) * 100, 0, 100);
-															const partnerPct = clamp(((partner - range.min) / denom) * 100, 0, 100);
+												const denom = Math.max(1, range.max - range.min);
+												const zeroPct = clamp(((0 - range.min) / denom) * 100, 0, 100);
+												const mePct = clamp(((me - range.min) / denom) * 100, 0, 100);
+												const partnerPct = clamp(((partner - range.min) / denom) * 100, 0, 100);
 												const poles = splitAxisPoles(axisId);
 
 												return (
 													<div key={axisId} className="rounded-2xl border border-white/10 bg-white/5 p-3">
 														<div className="flex items-start justify-between gap-2">
 															<p className="text-xs font-semibold text-white/85">{getAxisLabel(axisId)}</p>
-															<p className="text-xs text-white/60">Różnica: {diff}</p>
+															{roomMaxParticipants !== 1 ? (
+																<p className="text-xs text-white/60">Różnica: {diff}</p>
+															) : null}
 														</div>
 
 														<div className="mt-2">
@@ -1876,15 +2006,15 @@ export function PlayApp() {
 																<div
 																	className={`absolute top-0 h-2 w-2 -translate-x-1/2 rounded-full bg-white/80 ${pctToLeftClass(mePct)}`}
 																/>
-																<div
-																	className={`absolute top-0 h-2 w-2 -translate-x-1/2 rounded-full bg-white/50 ${pctToLeftClass(partnerPct)}`}
-																/>
+																{roomMaxParticipants !== 1 ? (
+																	<div
+																		className={`absolute top-0 h-2 w-2 -translate-x-1/2 rounded-full bg-white/50 ${pctToLeftClass(partnerPct)}`}
+																	/>
+																) : null}
 															</div>
 															<div className="relative mt-1 h-4 text-[10px] text-white/45">
 																<span className="absolute left-0 tabular-nums">{range.min}</span>
-																<span
-																	className={`absolute top-0 -translate-x-1/2 tabular-nums ${pctToLeftClass(zeroPct)}`}
-																>
+																<span className={`absolute top-0 -translate-x-1/2 tabular-nums ${pctToLeftClass(zeroPct)}`}>
 																	0
 																</span>
 																<span className="absolute right-0 tabular-nums">{range.max}</span>
@@ -1895,12 +2025,12 @@ export function PlayApp() {
 															</div>
 															<div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-white/60">
 																<span>Ty: {me}</span>
-																<span>Partner: {partner}</span>
+																{roomMaxParticipants !== 1 ? <span>Partner: {partner}</span> : null}
 															</div>
 														</div>
-												</div>
-											);
-												})}
+													</div>
+												);
+											})}
 										</div>
 
 										<div className="flex gap-2">
@@ -1918,23 +2048,37 @@ export function PlayApp() {
 										<div className="rounded-2xl border border-white/10 bg-white/5 p-3">
 											<div className="flex items-center justify-between gap-2">
 												<p className="text-sm font-semibold text-white/95">Podsumowanie</p>
-												<button
-													type="button"
-													onClick={() => void generateQuizSummary(Boolean(quiz.aiSummary?.text))}
-													disabled={quizSummaryLoading}
-													className="h-8 rounded-full border border-white/10 bg-white/10 px-3 text-xs font-semibold text-white/90 disabled:opacity-50"
-												>
-													{quizSummaryLoading ? (quiz.aiSummary?.text ? 'Odświeżam…' : 'Generuję…') : quiz.aiSummary?.text ? 'Odśwież' : 'Generuj'}
+												{roomMaxParticipants !== 1 ? (
+													<button
+														type="button"
+														onClick={() => void generateQuizSummary(Boolean(quiz.aiSummary?.text))}
+														disabled={quizSummaryLoading}
+														className="h-8 rounded-full border border-white/10 bg-white/10 px-3 text-xs font-semibold text-white/90 disabled:opacity-50"
+													>
+														{quizSummaryLoading
+															? quiz.aiSummary?.text
+																? 'Odświeżam…'
+																: 'Generuję…'
+															: quiz.aiSummary?.text
+															? 'Odśwież'
+															: 'Generuj'}
 												</button>
-											</div>
-
-											{quizSummaryError ? <p className="mt-2 text-xs text-red-400">{quizSummaryError}</p> : null}
-											{quiz.aiSummary?.text ? (
-												<div className="mt-3">{renderMarkdownLite(quiz.aiSummary.text)}</div>
-											) : (
-												<p className="mt-2 text-xs text-white/60">Kliknij „Generuj”, żeby dostać krótkie, konkretne zasady kompromisu.</p>
-											)}
+											) : null}
 										</div>
+
+										{roomMaxParticipants === 1 ? (
+											<p className="mt-2 text-xs text-white/60">Podsumowanie jest dostępne w wariancie „Dla par”.</p>
+										) : (
+											<>
+												{quizSummaryError ? <p className="mt-2 text-xs text-red-400">{quizSummaryError}</p> : null}
+												{quiz.aiSummary?.text ? (
+													<div className="mt-3">{renderMarkdownLite(quiz.aiSummary.text)}</div>
+												) : (
+													<p className="mt-2 text-xs text-white/60">Kliknij „Generuj”, żeby dostać krótkie, konkretne zasady kompromisu.</p>
+												)}
+											</>
+										)}
+									</div>
 
 										<div className="flex justify-end">
 											<BuyCoffeeToButton />
@@ -1942,7 +2086,9 @@ export function PlayApp() {
 									</div>
 								) : (
 									<div className="space-y-3">
-										{!isReady ? <p className="text-xs font-semibold text-white/60">Połączcie się we dwoje, żeby zacząć.</p> : null}
+										{!isReady && roomMaxParticipants === 2 ? (
+											<p className="text-xs font-semibold text-white/60">Połączcie się we dwoje, żeby zacząć.</p>
+										) : null}
 										{quizQuestion ? (
 											<div className="rounded-2xl border border-white/10 bg-white/5 p-3">
 												<p className="text-sm font-semibold text-white/95">{quizQuestion.prompt}</p>
@@ -1979,7 +2125,11 @@ export function PlayApp() {
 											</div>
 										) : null}
 
-										{myQuizOptionId ? <p className="text-xs font-semibold text-white/60">Wybrane. Czekam na partnera…</p> : null}
+										{myQuizOptionId ? (
+											<p className="text-xs font-semibold text-white/60">
+												Wybrane{roomMaxParticipants === 1 ? '.' : '. Czekam na partnera…'}
+											</p>
+										) : null}
 									</div>
 								)}
 							</div>

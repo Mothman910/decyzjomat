@@ -5,17 +5,26 @@ import { Lightbulb, Loader2, X } from 'lucide-react';
 
 type AiTipsContext = {
 	topic: string;
-	mode: 'match' | 'blind' | 'none';
+	mode: 'match' | 'blind' | 'quiz' | 'none';
 	categoryLabel?: string | null;
 	viewLabel?: string | null;
 	waitingForPartner?: boolean;
 	isReady?: boolean;
+	participantsCount?: number;
+	maxParticipants?: number;
 	// Kontekst treści (np. aktualna karta lub para w "Randce w ciemno")
 	currentTitle?: string | null;
 	leftTitle?: string | null;
 	rightTitle?: string | null;
 	leftDescription?: string | null;
 	rightDescription?: string | null;
+	// Kontekst quizu (Gusta)
+	quizPackLabel?: string | null;
+	quizStatus?: 'in_progress' | 'completed' | null;
+	quizProgress?: string | null;
+	quizQuestionPrompt?: string | null;
+	quizSolo?: boolean;
+	quizAgreementPercent?: number | null;
 	// Jeśli true, wymuś nową poradę (bez cache).
 	fresh?: boolean;
 };
@@ -56,8 +65,18 @@ export function AiTipsFab(props: {
 						fresh: refreshSeq > 0,
 					}),
 				});
-				const data = (await res.json()) as { tips?: string; error?: string };
-				if (!res.ok) throw new Error(data.error || 'Nie udało się pobrać porad.');
+				const data = (await res.json()) as {
+					tips?: string;
+					error?: string;
+					retryAfterMs?: number;
+				};
+				if (!res.ok) {
+					if (res.status === 429) {
+						const waitMs = typeof data.retryAfterMs === 'number' ? data.retryAfterMs : 800;
+						throw new Error(`AI jest teraz chwilowo przeciążone. Spróbuj ponownie za ~${Math.ceil(waitMs / 100) / 10}s.`);
+					}
+					throw new Error(data.error || 'Nie udało się pobrać porad.');
+				}
 				if (cancelled) return;
 				lastKeyRef.current = contextKey;
 				setTips(data.tips ?? null);
@@ -80,7 +99,7 @@ export function AiTipsFab(props: {
 				<div className="fixed bottom-20 left-4 z-50 w-[min(92vw,360px)] rounded-2xl border border-black/10 bg-black/80 p-4 text-white backdrop-blur dark:border-white/[.145]">
 					<div className="flex items-start justify-between gap-3">
 						<div className="min-w-0">
-							<p className="text-sm font-semibold">Porady AI</p>
+							<p className="text-sm font-semibold">Szybkie porady</p>
 							<p className="mt-0.5 text-xs text-white/80">6–8 zdań inspiracji na teraz</p>
 						</div>
 						<button

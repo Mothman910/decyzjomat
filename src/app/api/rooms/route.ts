@@ -17,6 +17,7 @@ type CreateRoomRequest = {
 	blindTopic?: 'movies' | 'words';
 	wordsSubcategory?: WordPairsSubcategoryId;
 	packId?: QuizPackId;
+	solo?: boolean;
 	rounds?: number;
 	cardsLimit?: number;
 };
@@ -42,7 +43,8 @@ export async function POST(request: Request) {
 	try {
 		if (mode === 'quiz') {
 			const packId = (body.packId as QuizPackId | undefined) ?? 'mix';
-			const room = createRoom({ mode: 'quiz', packId });
+			const maxParticipants = body.solo ? 1 : 2;
+			const room = createRoom({ mode: 'quiz', packId, maxParticipants });
 			const roomView = clientId ? joinRoom(room, clientId) : viewRoom(room);
 			return NextResponse.json({ room: roomView });
 		}

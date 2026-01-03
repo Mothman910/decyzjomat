@@ -27,6 +27,7 @@ type RoomCreateInput =
 	| {
 			mode: 'quiz';
 			packId: QuizPackId;
+			maxParticipants?: 1 | 2;
 	  };
 
 const rooms = new Map<string, Room>();
@@ -148,6 +149,7 @@ function computeQuizSummary(scoresByClientId: QuizRoomState['scoresByClientId'],
 }
 
 function getRoomView(room: Room): RoomView {
+	const maxParticipants = room.maxParticipants ?? 2;
 	const base: RoomView = {
 		roomId: room.roomId,
 		code: room.code,
@@ -155,7 +157,7 @@ function getRoomView(room: Room): RoomView {
 		mode: room.state.mode,
 		participantsCount: room.participants.length,
 		participantClientIds: room.participants.map((p) => p.clientId),
-		maxParticipants: 2,
+		maxParticipants,
 	};
 
 	if (room.state.mode === 'match') {
@@ -196,6 +198,7 @@ function getRoomView(room: Room): RoomView {
 			quiz: {
 				quizId: room.state.quizId,
 				quizVersion: room.state.quizVersion,
+				maxParticipants: room.state.maxParticipants ?? maxParticipants,
 				packId: room.state.packId,
 				questionIds: room.state.questionIds,
 				currentIndex: room.state.currentIndex,
@@ -270,11 +273,13 @@ export function createRoom(input: RoomCreateInput): Room {
 	let code = randomCode();
 	while (roomIdByCode.has(code)) code = randomCode();
 
+	const maxParticipants = input.mode === 'quiz' ? (input.maxParticipants ?? 2) : 2;
 	const room: Room = {
 		roomId,
 		code,
 		createdAt: now(),
 		participants: [],
+		maxParticipants,
 		state:
 			input.mode === 'match'
 				? { mode: 'match', cards: input.cards, decisionsByClientId: {}, likesByClientId: {}, matchedCardId: null }
@@ -292,6 +297,7 @@ export function createRoom(input: RoomCreateInput): Room {
 							mode: 'quiz',
 							quizId: QUIZ_ID,
 							quizVersion: QUIZ_VERSION,
+							maxParticipants,
 							packId: input.packId,
 							questionIds,
 							currentIndex: 0,
@@ -323,8 +329,9 @@ export function getRoom(roomId: string): Room | null {
 export function joinRoom(room: Room, clientId: string): RoomView {
 	const existing = room.participants.find((p) => p.clientId === clientId);
 	if (!existing) {
-		if (room.participants.length >= 2) {
-			throw new Error('Pokój jest pełny (max 2 osoby).');
+		const maxParticipants = room.maxParticipants ?? 2;
+		if (room.participants.length >= maxParticipants) {
+			throw new Error(`Pokój jest pełny (max ${maxParticipants} ${maxParticipants === 1 ? 'osoba' : 'osoby'}).`);
 		}
 		room.participants.push({ clientId, joinedAt: now() });
 	}

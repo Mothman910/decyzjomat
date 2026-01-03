@@ -90,7 +90,27 @@ export default function RootLayout({
   		className={`${geistSans.variable} ${geistMono.variable} ${nanumPenScript.variable} ${emilysCandy.variable} antialiased`}
         suppressHydrationWarning
       >
-        {children}
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1">{children}</div>
+      <footer
+        className="border-t z-30 border-white/10 bg-zinc-950/40 px-3 py-2 text-center text-xs text-white/70 backdrop-blur-xl"
+        aria-label="Stopka"
+      >
+        <span>
+          Autor: Adam Fijałkowski ·{' '}
+          <a
+            href="https://www.facebook.com/Astralwanderer910/"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="font-semibold text-white/85 underline underline-offset-4 supports-[hover:hover]:hover:text-white"
+            aria-label="Facebook autora (otwiera się w nowej karcie)"
+            title="Facebook: Astralwanderer910"
+          >
+            Facebook
+          </a>
+        </span>
+      </footer>
+    </div>
 			<Analytics />
       </body>
     </html>

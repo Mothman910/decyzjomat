@@ -55,6 +55,7 @@ export type QuizRoomState = {
 	mode: 'quiz';
 	quizId: 'gusty-v1';
 	quizVersion: number;
+	maxParticipants?: 1 | 2;
 	packId: QuizPackId;
 	questionIds: string[]; // length = 20
 	currentIndex: number; // 0..20
@@ -70,6 +71,7 @@ export type Room = {
 	code: string;
 	createdAt: number;
 	participants: RoomParticipant[]; // max 2
+	maxParticipants?: 1 | 2;
 	state: MatchRoomState | BlindRoomState | QuizRoomState;
 };
 
@@ -96,6 +98,7 @@ export type RoomView = {
 	quiz?: {
 		quizId: 'gusty-v1';
 		quizVersion: number;
+		maxParticipants?: 1 | 2;
 		packId: QuizPackId;
 		questionIds: string[];
 		currentIndex: number;
