@@ -792,6 +792,7 @@ function BlindRoundView(props: {
 	statsText: string;
 	leftPopKey?: number | null;
 	rightPopKey?: number | null;
+	onOpenDescription?: (title: string, text: string) => void;
 }) {
 	const {
 		left,
@@ -802,6 +803,7 @@ function BlindRoundView(props: {
 		statsText,
 		leftPopKey,
 		rightPopKey,
+		onOpenDescription,
 	} = props;
 	const [showLeftDescription, setShowLeftDescription] = useState(false);
 	const [showRightDescription, setShowRightDescription] = useState(false);
@@ -909,6 +911,11 @@ function BlindRoundView(props: {
 										onPointerDown={(e) => e.stopPropagation()}
 										onClick={(e) => {
 											e.stopPropagation();
+											const usePopup = window.matchMedia('(max-width: 768px)').matches;
+											if (usePopup && left.description && onOpenDescription) {
+												onOpenDescription(left.title, left.description);
+												return;
+											}
 											setShowLeftDescription((v) => !v);
 										}}
 										title={!left.description ? 'Brak opisu.' : undefined}
@@ -1037,6 +1044,11 @@ function BlindRoundView(props: {
 										onPointerDown={(e) => e.stopPropagation()}
 										onClick={(e) => {
 											e.stopPropagation();
+											const usePopup = window.matchMedia('(max-width: 768px)').matches;
+											if (usePopup && right.description && onOpenDescription) {
+												onOpenDescription(right.title, right.description);
+												return;
+											}
 											setShowRightDescription((v) => !v);
 										}}
 										title={!right.description ? 'Brak opisu.' : undefined}
@@ -2140,6 +2152,7 @@ export function PlayApp() {
 								right={currentRound.right}
 								disabled={!isReady || myBlindVotedRoundIndexes.has(currentRound.index)}
 								statsText={statsText}
+								onOpenDescription={(title, text) => setDescriptionModal({ title, text })}
 								leftPopKey={
 									blindPop && blindPop.roundIndex === currentRound.index && blindPop.side === 'left'
 										? blindPop.key
